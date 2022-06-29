@@ -16,12 +16,10 @@
 import org.projectnessie.model.CommitMeta;
 import org.projectnessie.model.Content;
 import org.projectnessie.server.store.TableCommitMetaStoreWorker;
+import org.projectnessie.versioned.*;
 import org.projectnessie.versioned.persist.adapter.*;
 import com.google.protobuf.ByteString;
-import org.projectnessie.versioned.Hash;
-import org.projectnessie.versioned.GetNamedRefsParams;
-import org.projectnessie.versioned.ReferenceInfo;
-import org.projectnessie.versioned.StoreWorker;
+import org.projectnessie.versioned.persist.store.PersistVersionStore;
 
 
 import java.util.Optional;
@@ -30,35 +28,36 @@ import java.util.stream.Stream;
 
 public class ExportNessieRepo {
 
-  Content content;
-
   DatabaseAdapter databaseAdapter;
 
   StoreWorker<Content, CommitMeta, Content.Type> storeWorker = new TableCommitMetaStoreWorker();
 
-  VersionStore<Content, CommitMeta, Content.Type> versionStore =
-    new PersistVersionStore<>(databaseAdapter, storeWorker);
+  public void getTables( ) throws RefLogNotFoundException, ReferenceNotFoundException {
+    GetNamedRefsParams params = GetNamedRefsParams.DEFAULT;
+
+    Stream<ReferenceInfo<ByteString>> namedReferences = databaseAdapter.namedRefs(params);
+
+    Stream<CommitLogEntry> commitLogTable =  databaseAdapter.scanAllCommitLogEntries();
+
+    RepoDescription repoDescTable = databaseAdapter.fetchRepositoryDescription();
+
+    Stream<RefLog> refLogTable = databaseAdapter.refLog(null);
+  }
 
 
-  GetNamedRefsParams params = GetNamedRefsParams.DEFAULT;
-
-  Stream<ReferenceInfo<ByteString>> namedReferences = databaseAdapter.namedRefs(params);
-
-  Stream<CommitLogEntry> commitLogTable =  databaseAdapter.scanAllCommitLogEntries();
-
-  RepoDescription repoDescTable = databaseAdapter.fetchRepositoryDescription();
-
-  Stream<RefLog> refLogTable = databaseAdapter.refLog(null);
-
-  ContentId contentId;
-
-  Optional<ContentIdAndBytes> globalContent = databaseAdapter.globalContent(contentId);
-
-  ByteString onReferenceValue;
-
-  Supplier<ByteString> globalState ;
-
-  CONTENT content1 = storeWorker.valueFromStore(onReferenceValue, globalState );
-
+//  ContentId contentId;
+//
+//  Optional<ContentIdAndBytes> globalContent = databaseAdapter.globalContent(contentId);
+//
+//  ByteString onReferenceValue;
+//
+//  Supplier<ByteString> globalState ;
+//
+//  CONTENT content1 = storeWorker.valueFromStore(onReferenceValue, globalState );
+//
+//  Content content;
+//
+//  VersionStore<Content, CommitMeta, Content.Type> versionStore =
+//    new PersistVersionStore<>(databaseAdapter, storeWorker);
 
 }

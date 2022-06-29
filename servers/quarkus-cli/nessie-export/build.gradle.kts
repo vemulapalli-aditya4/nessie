@@ -14,17 +14,24 @@
  * limitations under the License.
  */
 
-import org.projectnessie.server.store.TableCommitMetaStoreWorker;
-import org.projectnessie.versioned.persist.adapter.DatabaseAdapter;
-import com.google.protobuf.ByteString;
+plugins {
+  `java-library`
+  jacoco
+  `maven-publish`
+  `nessie-conventions`
+  id("org.projectnessie.buildsupport.attach-test-jar")
+}
 
-
-import java.util.Optional;
-import java.util.function.Supplier;
-import java.util.stream.Stream;
-
-public class export2 {
-
-  DatabaseAdapter databaseAdapter;
+dependencies {
+  implementation(platform(rootProject))
+  annotationProcessor(platform(rootProject))
+  implementation(projects.servers.quarkusCommon)
+  implementation(projects.servers.services)
+  implementation(projects.servers.store)
+  implementation(projects.versioned.persist.adapter)
+  implementation(projects.versioned.spi)
+  implementation(projects.versioned.persist.persistStore)
+  implementation(projects.model)
 
 }
+
