@@ -230,3 +230,5 @@ project(":versioned:persist:store").name = "persist-store"
 project(":clients:spark-extensions").name = "spark-31-extensions"
 
 project(":clients:spark-3.2-extensions").name = "spark-32-extensions"
+include("servers:quarkus-cli:nessie-export")
+findProject(":servers:quarkus-cli:nessie-export")?.name = "nessie-export"
