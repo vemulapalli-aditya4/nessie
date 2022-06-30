@@ -19,12 +19,20 @@ import org.projectnessie.server.store.TableCommitMetaStoreWorker;
 import org.projectnessie.versioned.*;
 import org.projectnessie.versioned.persist.adapter.*;
 import com.google.protobuf.ByteString;
+import org.projectnessie.versioned.persist.serialize.AdapterTypes;
 import org.projectnessie.versioned.persist.store.PersistVersionStore;
 
 
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.toProto;
 
 public class ExportNessieRepo {
 
@@ -32,16 +40,74 @@ public class ExportNessieRepo {
 
   StoreWorker<Content, CommitMeta, Content.Type> storeWorker = new TableCommitMetaStoreWorker();
 
-  public void getTables( ) throws RefLogNotFoundException, ReferenceNotFoundException {
+  public void getTables( ) throws RefLogNotFoundException, ReferenceNotFoundException, IOException {
+
+    /** handle the exceptions */
+
+    /**************************************************************************************************/
     GetNamedRefsParams params = GetNamedRefsParams.DEFAULT;
 
     Stream<ReferenceInfo<ByteString>> namedReferences = databaseAdapter.namedRefs(params);
+    List <ReferenceInfo<ByteString>> namedReferencesList = namedReferences.collect(Collectors.toList());
+
+    String namedRefsTableFilePath = "/Users/aditya.vemulapalli/Downloads/namedRefsTableProto";
+    FileOutputStream fosNamedRefs = new FileOutputStream(namedRefsTableFilePath);
+
+    /** message NamedReference { -->only used in Non Tx
+      string name = 1;
+      RefPointer ref = 2;
+    }*/
+
+    /** Write the logic to serialize the named references */
+    fosNamedRefs.close();
+
+    /**************************************************************************************************/
 
     Stream<CommitLogEntry> commitLogTable =  databaseAdapter.scanAllCommitLogEntries();
+    List<CommitLogEntry> commitLogList = commitLogTable.collect(Collectors.toList());
+
+    String commitLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/commitLogTableProto";
+    FileOutputStream fosCommitLog = new FileOutputStream(commitLogTableFilePath);
+
+    /** Write the logic to serialize Commit Log Entries */
+    fosCommitLog.close();
+
+    /**************************************************************************************************/
+
 
     RepoDescription repoDescTable = databaseAdapter.fetchRepositoryDescription();
+    // Serializing Repository description
+    AdapterTypes.RepoProps repoProps = toProto(repoDescTable);
+    // protoc -I=. --java_out=. persist.proto
+    String repoDescFilePath = "/Users/aditya.vemulapalli/Downloads/repoDescProto";
 
+    /** Forgot try " with - resources " to habdle the exception */
+    FileOutputStream fosDescTable = new FileOutputStream(repoDescFilePath);
+    repoProps.writeTo(fosDescTable);
+    fosDescTable.close();
+
+    /**************************************************************************************************/
+
+    /** test null works or not */
     Stream<RefLog> refLogTable = databaseAdapter.refLog(null);
+    /** Will the list be in the same order of stream ( is Stream an actual order of RefLogTable )  */
+    List<RefLog> refLogList = refLogTable.collect(Collectors.toList());
+
+    String refLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/refLogTableProto";
+    FileOutputStream fosRefLog = new FileOutputStream(refLogTableFilePath);
+
+    for( int i = 0 ; i < refLogList.size(); i++)
+    {
+      RefLog refLog = refLogList.get(i);
+
+      /** serialize the RefLog */
+      /** Should write a function to do serialization of RefLog , common for tx and non tx */
+      AdapterTypes.RefLogEntry refLogEntry ;
+      /** refLogEntry.writeTo(fosRefLog); */
+    }
+    fosRefLog.close();
+
+    /**************************************************************************************************/
   }
 
 

@@ -29,6 +29,8 @@ dependencies {
   implementation(projects.servers.services)
   implementation(projects.servers.store)
   implementation(projects.versioned.persist.adapter)
+  implementation(projects.versioned.persist.serialize)
+  implementation(projects.versioned.persist.serializeProto)
   implementation(projects.versioned.spi)
   implementation(projects.versioned.persist.persistStore)
   implementation(projects.model)
