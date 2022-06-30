@@ -125,8 +125,11 @@ public class ExportNessieRepo {
       TRANSPLANT = 5;
     }*/
 
-    /***/
     String op = refLog.getOperation();
+    List<Hash> sourceHashes = refLog.getSourceHashes();
+    List<Hash> parents = refLog.getParents();
+    /** set operation, parents , source hashes are need to be initiaized */
+
     AdapterTypes.RefLogEntry.Builder proto =
       AdapterTypes.RefLogEntry.newBuilder()
         .setRefLogId(refLog.getRefLogId().asBytes())
@@ -135,10 +138,6 @@ public class ExportNessieRepo {
         .setCommitHash(refLog.getCommitHash().asBytes())
         .setOperationTime(refLog.getOperationTime())
         .setOperation();
-    /** set operation, parents , source hashes are need to be initiaized */
-
-
-
     AdapterTypes.RefLogEntry refLogEntry = proto.build();
     return refLogEntry;
   }
