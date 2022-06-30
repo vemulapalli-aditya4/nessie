@@ -41,6 +41,8 @@ public class ExportNessieRepo {
   DatabaseAdapter databaseAdapter;
 
   StoreWorker<Content, CommitMeta, Content.Type> storeWorker = new TableCommitMetaStoreWorker();
+  public ExportNessieRepo() throws FileNotFoundException {
+  }
 
   public void getTables( ) throws RefLogNotFoundException, ReferenceNotFoundException, IOException {
 
@@ -55,12 +57,14 @@ public class ExportNessieRepo {
     String namedRefsTableFilePath = "/Users/aditya.vemulapalli/Downloads/namedRefsTableProto";
     FileOutputStream fosNamedRefs = new FileOutputStream(namedRefsTableFilePath);
 
-    /** message NamedReference { -->only used in Non Tx
-      string name = 1;
-      RefPointer ref = 2;
-    }*/
-
     /** Write the logic to serialize the named references */
+    /** Serialization must be such that , deserialization must be easy */
+    for( int i = 0 ; i < namedReferencesList.size(); i++)
+    {
+      ReferenceInfo<ByteString> namedref = namedReferencesList.get(i);
+
+    }
+
     fosNamedRefs.close();
 
     /**************************************************************************************************/
@@ -104,8 +108,8 @@ public class ExportNessieRepo {
 
       /** serialize the RefLog */
       /** Should write a function to do serialization of RefLog , common for tx and non tx */
-      AdapterTypes.RefLogEntry refLogEntry ;
-      /** refLogEntry.writeTo(fosRefLog); */
+      AdapterTypes.RefLogEntry refLogEntry = toProtoFromRefLog(refLog);
+      refLogEntry.writeTo(fosRefLog);
     }
     fosRefLog.close();
 
@@ -126,9 +130,21 @@ public class ExportNessieRepo {
     }*/
 
     String op = refLog.getOperation();
-    List<Hash> sourceHashes = refLog.getSourceHashes();
-    List<Hash> parents = refLog.getParents();
-    /** set operation, parents , source hashes are need to be initiaized */
+    AdapterTypes.RefLogEntry.Operation operation = AdapterTypes.RefLogEntry.Operation.TRANSPLANT;
+
+    /** Confirm whether the string ops are correct or not */
+    if(Objects.equals(op, "CREATE_REFERENCE"))
+    {
+      operation = AdapterTypes.RefLogEntry.Operation.CREATE_REFERENCE;
+    } else if (Objects.equals(op, "COMMIT")) {
+      operation = AdapterTypes.RefLogEntry.Operation.COMMIT;
+    } else if ( Objects.equals(op, "DELETE_REFERENCE") ) {
+      operation = AdapterTypes.RefLogEntry.Operation.COMMIT;
+    } else if (Objects.equals(op, "ASSIGN_REFERENCE") ) {
+      operation = AdapterTypes.RefLogEntry.Operation.ASSIGN_REFERENCE;
+    } else if (Objects.equals(op, "MERGE")) {
+      operation = AdapterTypes.RefLogEntry.Operation.MERGE;
+    }
 
     AdapterTypes.RefLogEntry.Builder proto =
       AdapterTypes.RefLogEntry.newBuilder()
@@ -137,7 +153,14 @@ public class ExportNessieRepo {
         .setRefType(refType)
         .setCommitHash(refLog.getCommitHash().asBytes())
         .setOperationTime(refLog.getOperationTime())
-        .setOperation();
+        .setOperation(operation);
+
+    List<Hash> sourceHashes = refLog.getSourceHashes();
+    sourceHashes.forEach(hash -> proto.addSourceHashes(hash.asBytes()));
+
+    Stream<ByteString> parents = refLog.getParents().stream().map(Hash::asBytes);
+    parents.forEach(proto::addParents);
+
     AdapterTypes.RefLogEntry refLogEntry = proto.build();
     return refLogEntry;
   }
