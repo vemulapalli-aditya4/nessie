@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import org.projectnessie.model.CommitMeta;
 import org.projectnessie.model.Content;
 import org.projectnessie.server.store.TableCommitMetaStoreWorker;
@@ -23,9 +25,7 @@ import org.projectnessie.versioned.persist.serialize.AdapterTypes;
 import org.projectnessie.versioned.persist.store.PersistVersionStore;
 
 
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
@@ -55,17 +55,20 @@ public class ExportNessieRepo {
     List <ReferenceInfo<ByteString>> namedReferencesList = namedReferences.collect(Collectors.toList());
 
     String namedRefsTableFilePath = "/Users/aditya.vemulapalli/Downloads/namedRefsTableProto";
-    FileOutputStream fosNamedRefs = new FileOutputStream(namedRefsTableFilePath);
+    // FileOutputStream fosNamedRefs = new FileOutputStream(namedRefsTableFilePath);
+    Writer writer = new FileWriter(namedRefsTableFilePath);
 
+    /**Using GSON for serialization and de - serialization*/
     /** Write the logic to serialize the named references */
     /** Serialization must be such that , deserialization must be easy */
     for( int i = 0 ; i < namedReferencesList.size(); i++)
     {
       ReferenceInfo<ByteString> namedref = namedReferencesList.get(i);
-
+      Gson gson = new GsonBuilder().setPrettyPrinting().create();
+      gson.toJson(namedref, writer);
     }
-
-    fosNamedRefs.close();
+    writer.close();
+    // fosNamedRefs.close();
 
     /**************************************************************************************************/
 

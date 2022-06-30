@@ -34,6 +34,6 @@ dependencies {
   implementation(projects.versioned.spi)
   implementation(projects.versioned.persist.persistStore)
   implementation(projects.model)
-
+  implementation("com.google.code.gson:gson:2.8.9")
 }
 
