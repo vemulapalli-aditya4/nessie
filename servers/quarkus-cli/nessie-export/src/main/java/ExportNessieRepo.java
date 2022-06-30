@@ -26,7 +26,9 @@ import org.projectnessie.versioned.persist.store.PersistVersionStore;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -110,6 +112,36 @@ public class ExportNessieRepo {
     /**************************************************************************************************/
   }
 
+  public AdapterTypes.RefLogEntry toProtoFromRefLog(RefLog refLog)
+  {
+    /** Reference type can be 'Branch' or 'Tag'. */
+    AdapterTypes.RefType refType = Objects.equals(refLog.getRefType(), "Tag") ? AdapterTypes.RefType.Tag : AdapterTypes.RefType.Branch;
+    /**enum Operation { __>RefLogEntry persist.proto
+      CREATE_REFERENCE = 0;
+      COMMIT = 1;
+      DELETE_REFERENCE = 2;
+      ASSIGN_REFERENCE = 3;
+      MERGE = 4;
+      TRANSPLANT = 5;
+    }*/
+
+    /***/
+    String op = refLog.getOperation();
+    AdapterTypes.RefLogEntry.Builder proto =
+      AdapterTypes.RefLogEntry.newBuilder()
+        .setRefLogId(refLog.getRefLogId().asBytes())
+        .setRefName(ByteString.copyFromUtf8(refLog.getRefName()))
+        .setRefType(refType)
+        .setCommitHash(refLog.getCommitHash().asBytes())
+        .setOperationTime(refLog.getOperationTime())
+        .setOperation();
+    /** set operation, parents , source hashes are need to be initiaized */
+
+
+
+    AdapterTypes.RefLogEntry refLogEntry = proto.build();
+    return refLogEntry;
+  }
 
 //  ContentId contentId;
 //
