@@ -22,19 +22,15 @@ import org.projectnessie.versioned.*;
 import org.projectnessie.versioned.persist.adapter.*;
 import com.google.protobuf.ByteString;
 import org.projectnessie.versioned.persist.serialize.AdapterTypes;
-import org.projectnessie.versioned.persist.store.PersistVersionStore;
 
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.keyToProto;
 import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.toProto;
 
 public class ExportNessieRepo {
@@ -63,8 +59,7 @@ public class ExportNessieRepo {
 
     /**Gson gson = new GsonBuilder().create(); --->for non readable format */
 
-    /** For somewhat readable format */
-    Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    Gson gson = new Gson();
     gson.toJson(namedReferencesList, writer);
 
     writer.close();
@@ -74,45 +69,62 @@ public class ExportNessieRepo {
     Stream<CommitLogEntry> commitLogTable =  databaseAdapter.scanAllCommitLogEntries();
     List<CommitLogEntry> commitLogList = commitLogTable.collect(Collectors.toList());
 
-    String commitLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/commitLogTableProto";
-    FileOutputStream fosCommitLog = new FileOutputStream(commitLogTableFilePath);
+    /**To store the created time, commit seq, Hash , 1st parent*/
+    String commitLogTableFilePath1 = "/Users/aditya.vemulapalli/Downloads/commitLogFile1.json";
+    Writer writerCommitLogFile1 = new FileWriter(commitLogTableFilePath1);
+    Gson gsonCommitLogfile1 = new Gson();
+    List<Class1ForCommitLog> commitLog1 = new ArrayList<Class1ForCommitLog>();
 
-    long createdTime;
-    Hash hash;
-    long getCommitSeq;
-    Hash parent_1st;
-    ByteString metadata;
-    // puts
+    /** To store the additional Parents*/
+    String commitLogTableFilePath2 = "/Users/aditya.vemulapalli/Downloads/commitLogFile2.json";
+    Writer writerCommitLogFile2 = new FileWriter(commitLogTableFilePath2);
+    Gson gsonCommitLogfile2 = new Gson();
+    List<String> commitLog2 = new ArrayList<String>();
+
+    /** To store the counts of additional Parents of each commitLogEntry */
+    String commitLogTableFilePath3 = "/Users/aditya.vemulapalli/Downloads/commitLogFile3.json";
+    Writer writerCommitLogFile3 = new FileWriter(commitLogTableFilePath3);
+    Gson gsonCommitLogfile3 = new Gson();
+    List<Integer> commitLog3 = new ArrayList<Integer>();
+
+    List<KeyWithBytes> puts;
     List<Key> deletes;
-    List<Hash> additionalParents;
+    ByteString metaData1;
 
     for( CommitLogEntry commitLogEntry : commitLogList)
     {
-          AdapterTypes.CommitLogEntry.Builder proto =
-            AdapterTypes.CommitLogEntry.newBuilder()
-              .setCreatedTime(commitLogEntry.getCreatedTime())
-              .setHash(commitLogEntry.getHash().asBytes())
-              .setCommitSeq(commitLogEntry.getCommitSeq())
-              .setMetadata(commitLogEntry.getMetadata()) /** Meta Data */
-              .setKeyListDistance(0); /**setting 0 value for keyListEditDistance as we dont need to import it ??*/
+      Class1ForCommitLog var1 = new Class1ForCommitLog(commitLogEntry.getCreatedTime(),
+        commitLogEntry.getCommitSeq(),
+        commitLogEntry.getHash().asString(),
+        commitLogEntry.getParents().get(0).asString());
 
-//      entry.getPuts().forEach(p -> proto.addPuts(toProto(p)));
-//
-//      if (entry.getKeyList() != null) {
-//        entry.getKeyList().getKeys().forEach(k -> proto.addKeyList(toProto(k)));
-//      }
-//      entry.getKeyListsIds().forEach(k -> proto.addKeyListIds(k.asBytes()));
+      commitLog1.add(var1);
 
-          List <Hash> parents = commitLogEntry.getParents();
-          parent_1st = parents.get(0);
+      List<Hash> additionalParents = commitLogEntry.getAdditionalParents();
+      if(additionalParents == null)
+      {
+        commitLog3.add(-1);
+      }
+      else{
+        commitLog3.add(additionalParents.size());
+        for (Hash additionalParent : additionalParents) {
+          commitLog2.add(additionalParent.asString());
+        }
+      }
 
-          proto.addParents(parent_1st.asBytes());
-          commitLogEntry.getDeletes().forEach(p -> proto.addDeletes(keyToProto(p)));
-          commitLogEntry.getAdditionalParents().forEach(p -> proto.addAdditionalParents(p.asBytes()));
+      /**Ask whether this is the metadata meant or any other form  */
+      ByteString metaData = commitLogEntry.getMetadata();
 
-          proto.build().writeTo(fosCommitLog);
     }
-    fosCommitLog.close();
+
+    gsonCommitLogfile1.toJson(commitLog1, writerCommitLogFile1);
+    writerCommitLogFile1.close();
+
+    gsonCommitLogfile2.toJson(commitLog2, writerCommitLogFile2);
+    writerCommitLogFile2.close();
+
+    gsonCommitLogfile3.toJson(commitLog3, writerCommitLogFile3);
+    writerCommitLogFile3.close();
 
     /**************************************************************************************************/
 
