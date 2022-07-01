@@ -87,9 +87,19 @@ public class ExportNessieRepo {
     Gson gsonCommitLogfile3 = new Gson();
     List<Integer> commitLog3 = new ArrayList<Integer>();
 
+    /** To store the metaData*/
+    String metaDataInfoFilePath = "/Users/aditya.vemulapalli/Downloads/metaDataInfoFile";
+    List<ByteString> metaDataInfo = new ArrayList<ByteString>();
+    ByteString metaData;
+
+    /** To store the metaDataSizes*/
+    String metaDataInfoSizesFilePath = "/Users/aditya.vemulapalli/Downloads/metaDataInfoSizesFile.json";
+    List<Integer> metaDataInfoSizes = new ArrayList<Integer>();
+    Writer MetaDataInfoSizesWriter = null;
+    Gson gsonMetaDataInfoSizes = new Gson();
+
     List<KeyWithBytes> puts;
     List<Key> deletes;
-    ByteString metaData1;
 
     for( CommitLogEntry commitLogEntry : commitLogList)
     {
@@ -113,8 +123,9 @@ public class ExportNessieRepo {
       }
 
       /**Ask whether this is the metadata meant or any other form  */
-      ByteString metaData = commitLogEntry.getMetadata();
-
+      metaData = commitLogEntry.getMetadata();
+      metaDataInfo.add(metaData);
+      metaDataInfoSizes.add(metaData.size());
     }
 
     gsonCommitLogfile1.toJson(commitLog1, writerCommitLogFile1);
@@ -126,6 +137,38 @@ public class ExportNessieRepo {
     gsonCommitLogfile3.toJson(commitLog3, writerCommitLogFile3);
     writerCommitLogFile3.close();
 
+    FileOutputStream fosMetaDataInfo = null;
+    try{
+      fosMetaDataInfo = new FileOutputStream(metaDataInfoFilePath);
+      MetaDataInfoSizesWriter = new FileWriter(metaDataInfoSizesFilePath);
+      gsonMetaDataInfoSizes.toJson(metaDataInfoSizes, MetaDataInfoSizesWriter);
+      for (ByteString bytes : metaDataInfo) {
+        bytes.writeTo(fosMetaDataInfo);
+      }
+    } catch (FileNotFoundException e) {
+      throw new RuntimeException(e);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }  finally {
+      if (MetaDataInfoSizesWriter != null) {
+        try {
+          MetaDataInfoSizesWriter.close();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+      }
+
+      if(fosMetaDataInfo != null)
+      {
+        try{
+          fosMetaDataInfo.close();
+      } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+      }
+
+    }
+
     /**************************************************************************************************/
 
 
@@ -136,9 +179,22 @@ public class ExportNessieRepo {
     String repoDescFilePath = "/Users/aditya.vemulapalli/Downloads/repoDescProto";
 
     /** Forgot try " with - resources " to handle the exception */
-    FileOutputStream fosDescTable = new FileOutputStream(repoDescFilePath);
-    repoProps.writeTo(fosDescTable);
-    fosDescTable.close();
+    FileOutputStream fosDescTable = null;
+    try{
+      fosDescTable = new FileOutputStream(repoDescFilePath);
+      repoProps.writeTo(fosDescTable);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    } finally {
+      if(fosDescTable != null)
+      {
+        try {
+          fosDescTable.close();
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+      }
+    }
 
     /**************************************************************************************************/
 
