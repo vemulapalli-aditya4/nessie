@@ -34,6 +34,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.keyToProto;
 import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.toProto;
 
 public class ExportNessieRepo {
@@ -54,21 +55,19 @@ public class ExportNessieRepo {
     Stream<ReferenceInfo<ByteString>> namedReferences = databaseAdapter.namedRefs(params);
     List <ReferenceInfo<ByteString>> namedReferencesList = namedReferences.collect(Collectors.toList());
 
-    String namedRefsTableFilePath = "/Users/aditya.vemulapalli/Downloads/namedRefsTableProto";
-    // FileOutputStream fosNamedRefs = new FileOutputStream(namedRefsTableFilePath);
+    String namedRefsTableFilePath = "/Users/aditya.vemulapalli/Downloads/namedRefs.json";
     Writer writer = new FileWriter(namedRefsTableFilePath);
 
     /**Using GSON for serialization and de - serialization*/
-    /** Write the logic to serialize the named references */
-    /** Serialization must be such that , deserialization must be easy */
-    for( int i = 0 ; i < namedReferencesList.size(); i++)
-    {
-      ReferenceInfo<ByteString> namedref = namedReferencesList.get(i);
-      Gson gson = new GsonBuilder().setPrettyPrinting().create();
-      gson.toJson(namedref, writer);
-    }
+    /** Serialization is straight forward , deserialization must be done using custom deserializer */
+
+    /**Gson gson = new GsonBuilder().create(); --->for non readable format */
+
+    /** For somewhat readable format */
+    Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    gson.toJson(namedReferencesList, writer);
+
     writer.close();
-    // fosNamedRefs.close();
 
     /**************************************************************************************************/
 
@@ -78,7 +77,41 @@ public class ExportNessieRepo {
     String commitLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/commitLogTableProto";
     FileOutputStream fosCommitLog = new FileOutputStream(commitLogTableFilePath);
 
-    /** Write the logic to serialize Commit Log Entries */
+    long createdTime;
+    Hash hash;
+    long getCommitSeq;
+    Hash parent_1st;
+    ByteString metadata;
+    // puts
+    List<Key> deletes;
+    List<Hash> additionalParents;
+
+    for( CommitLogEntry commitLogEntry : commitLogList)
+    {
+          AdapterTypes.CommitLogEntry.Builder proto =
+            AdapterTypes.CommitLogEntry.newBuilder()
+              .setCreatedTime(commitLogEntry.getCreatedTime())
+              .setHash(commitLogEntry.getHash().asBytes())
+              .setCommitSeq(commitLogEntry.getCommitSeq())
+              .setMetadata(commitLogEntry.getMetadata()) /** Meta Data */
+              .setKeyListDistance(0); /**setting 0 value for keyListEditDistance as we dont need to import it ??*/
+
+//      entry.getPuts().forEach(p -> proto.addPuts(toProto(p)));
+//
+//      if (entry.getKeyList() != null) {
+//        entry.getKeyList().getKeys().forEach(k -> proto.addKeyList(toProto(k)));
+//      }
+//      entry.getKeyListsIds().forEach(k -> proto.addKeyListIds(k.asBytes()));
+
+          List <Hash> parents = commitLogEntry.getParents();
+          parent_1st = parents.get(0);
+
+          proto.addParents(parent_1st.asBytes());
+          commitLogEntry.getDeletes().forEach(p -> proto.addDeletes(keyToProto(p)));
+          commitLogEntry.getAdditionalParents().forEach(p -> proto.addAdditionalParents(p.asBytes()));
+
+          proto.build().writeTo(fosCommitLog);
+    }
     fosCommitLog.close();
 
     /**************************************************************************************************/
@@ -90,7 +123,7 @@ public class ExportNessieRepo {
     // protoc -I=. --java_out=. persist.proto
     String repoDescFilePath = "/Users/aditya.vemulapalli/Downloads/repoDescProto";
 
-    /** Forgot try " with - resources " to habdle the exception */
+    /** Forgot try " with - resources " to handle the exception */
     FileOutputStream fosDescTable = new FileOutputStream(repoDescFilePath);
     repoProps.writeTo(fosDescTable);
     fosDescTable.close();
@@ -105,10 +138,9 @@ public class ExportNessieRepo {
     String refLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/refLogTableProto";
     FileOutputStream fosRefLog = new FileOutputStream(refLogTableFilePath);
 
-    for( int i = 0 ; i < refLogList.size(); i++)
-    {
-      RefLog refLog = refLogList.get(i);
-
+    /** serialize the RefLog */
+    /** Should write a function to do serialization of RefLog , common for tx and non tx */
+    for (RefLog refLog : refLogList) {
       /** serialize the RefLog */
       /** Should write a function to do serialization of RefLog , common for tx and non tx */
       AdapterTypes.RefLogEntry refLogEntry = toProtoFromRefLog(refLog);
