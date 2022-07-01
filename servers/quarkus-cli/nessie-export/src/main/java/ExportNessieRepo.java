@@ -150,15 +150,36 @@ public class ExportNessieRepo {
     String refLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/refLogTableProto";
     FileOutputStream fosRefLog = new FileOutputStream(refLogTableFilePath);
 
+    String refLogEntrySizesFilePath = "/Users/aditya.vemulapalli/Downloads/refLogEntrySizes.json";
+    List <Integer> refLogEntrySizes = new ArrayList<Integer>();
+
     /** serialize the RefLog */
-    /** Should write a function to do serialization of RefLog , common for tx and non tx */
     for (RefLog refLog : refLogList) {
-      /** serialize the RefLog */
-      /** Should write a function to do serialization of RefLog , common for tx and non tx */
       AdapterTypes.RefLogEntry refLogEntry = toProtoFromRefLog(refLog);
       refLogEntry.writeTo(fosRefLog);
+
+      refLogEntrySizes.add(refLogEntry.getSerializedSize());
     }
     fosRefLog.close();
+
+    Writer refLogEntrySizesWriter = null;
+    Gson gsonRefLogSizes = new Gson();
+    /** Should write file writer using try resources block */
+    try{
+       refLogEntrySizesWriter = new FileWriter(refLogEntrySizesFilePath);
+       gsonRefLogSizes.toJson(refLogEntrySizes, refLogEntrySizesWriter);
+    } catch (IOException e) {
+      e.printStackTrace();
+    } finally {
+      if (refLogEntrySizesWriter != null) {
+        try {
+          refLogEntrySizesWriter.close();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+      }
+
+    }
 
     /**************************************************************************************************/
   }
