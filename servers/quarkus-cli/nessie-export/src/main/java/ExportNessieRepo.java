@@ -32,6 +32,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.keyToProto;
 import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.toProto;
 
 public class ExportNessieRepo {
@@ -112,6 +113,23 @@ public class ExportNessieRepo {
     Writer MetaDataInfoSizesWriter = null;
     Gson gsonMetaDataInfoSizes = new Gson();
 
+    /** To store the deletes */
+    String deletesFilePath = "/Users/aditya.vemulapalli/Downloads/deletesProto";
+    List<AdapterTypes.Key> deletesKeysProto = new ArrayList<AdapterTypes.Key>();
+
+    /**To store the size of deletes list present in each commit log entry */
+    String deletesListSizesFilePath = "/Users/aditya.vemulapalli/Downloads/deletesListSizes.json";
+    List<Integer> deletesListSizes = new ArrayList<Integer>();
+    Writer deletesListSizesWriter = null;
+    Gson gsonDeletesListSizes = new Gson();
+
+    /**To store the size of each key which will be present in the list of deltes in each commit log entry*/
+    /** This contains key sizes in all deletes lists of all commit log entries */
+    String deletesKeySizesFilePath = "/Users/aditya.vemulapalli/Downloads/deletesKeySizes.json";
+    List<Integer> deletesKeySizes = new ArrayList<Integer>();
+    Writer deletesKeySizesWriter = null;
+    Gson gsonDeletesKeySizes = new Gson();
+
     List<KeyWithBytes> puts;
     List<Key> deletes;
 
@@ -140,9 +158,19 @@ public class ExportNessieRepo {
       metaData = commitLogEntry.getMetadata();
       metaDataInfo.add(metaData);
       metaDataInfoSizes.add(metaData.size());
+
+      deletes = commitLogEntry.getDeletes();
+
+      deletesListSizes.add(deletes.size());
+      for (Key key : deletes) {
+        AdapterTypes.Key keyEntry = keyToProto(key);
+        deletesKeysProto.add(keyEntry);
+        deletesKeySizes.add(keyEntry.getSerializedSize());
+      }
     }
 
     FileOutputStream fosMetaDataInfo = null;
+    FileOutputStream fosDeletesKeys = null;
     try{
       writerCommitLogFile1 = new FileWriter(commitLogTableFilePath1);
       gsonCommitLogfile1.toJson(commitLog1, writerCommitLogFile1);
@@ -160,6 +188,19 @@ public class ExportNessieRepo {
       for (ByteString bytes : metaDataInfo) {
         bytes.writeTo(fosMetaDataInfo);
       }
+
+      deletesListSizesWriter = new FileWriter(deletesListSizesFilePath);
+      gsonDeletesListSizes.toJson(deletesListSizes, deletesListSizesWriter);
+
+      deletesKeySizesWriter = new FileWriter(deletesKeySizesFilePath);
+      gsonDeletesKeySizes.toJson(deletesKeySizes, deletesKeySizesWriter);
+
+      fosDeletesKeys = new FileOutputStream(deletesFilePath);
+      for( AdapterTypes.Key deletesKeyEntry : deletesKeysProto)
+      {
+        deletesKeyEntry.writeTo(fosDeletesKeys);
+      }
+
     } catch (FileNotFoundException e) {
       throw new RuntimeException(e);
     } catch (IOException e) {
