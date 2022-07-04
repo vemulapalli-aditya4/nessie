@@ -15,6 +15,7 @@
  */
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonIOException;
 import org.projectnessie.model.CommitMeta;
 import org.projectnessie.model.Content;
 import org.projectnessie.server.store.TableCommitMetaStoreWorker;
@@ -52,17 +53,30 @@ public class ExportNessieRepo {
     List <ReferenceInfo<ByteString>> namedReferencesList = namedReferences.collect(Collectors.toList());
 
     String namedRefsTableFilePath = "/Users/aditya.vemulapalli/Downloads/namedRefs.json";
-    Writer writer = new FileWriter(namedRefsTableFilePath);
+    Writer writer = null;
+    Gson gson = new Gson();
 
     /**Using GSON for serialization and de - serialization*/
     /** Serialization is straight forward , deserialization must be done using custom deserializer */
 
     /**Gson gson = new GsonBuilder().create(); --->for non readable format */
 
-    Gson gson = new Gson();
-    gson.toJson(namedReferencesList, writer);
-
-    writer.close();
+    try{
+      writer = new FileWriter(namedRefsTableFilePath);
+      gson.toJson(namedReferencesList, writer);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    } finally {
+      if(writer != null)
+      {
+        try {
+          writer.close();
+        }
+        catch(IOException e){
+          e.printStackTrace();
+      }
+      }
+    }
 
     /**************************************************************************************************/
 
@@ -71,19 +85,19 @@ public class ExportNessieRepo {
 
     /**To store the created time, commit seq, Hash , 1st parent*/
     String commitLogTableFilePath1 = "/Users/aditya.vemulapalli/Downloads/commitLogFile1.json";
-    Writer writerCommitLogFile1 = new FileWriter(commitLogTableFilePath1);
+    Writer writerCommitLogFile1 = null;
     Gson gsonCommitLogfile1 = new Gson();
     List<Class1ForCommitLog> commitLog1 = new ArrayList<Class1ForCommitLog>();
 
     /** To store the additional Parents*/
     String commitLogTableFilePath2 = "/Users/aditya.vemulapalli/Downloads/commitLogFile2.json";
-    Writer writerCommitLogFile2 = new FileWriter(commitLogTableFilePath2);
+    Writer writerCommitLogFile2 = null;
     Gson gsonCommitLogfile2 = new Gson();
     List<String> commitLog2 = new ArrayList<String>();
 
     /** To store the counts of additional Parents of each commitLogEntry */
     String commitLogTableFilePath3 = "/Users/aditya.vemulapalli/Downloads/commitLogFile3.json";
-    Writer writerCommitLogFile3 = new FileWriter(commitLogTableFilePath3);
+    Writer writerCommitLogFile3 = null;
     Gson gsonCommitLogfile3 = new Gson();
     List<Integer> commitLog3 = new ArrayList<Integer>();
 
@@ -128,20 +142,21 @@ public class ExportNessieRepo {
       metaDataInfoSizes.add(metaData.size());
     }
 
-    gsonCommitLogfile1.toJson(commitLog1, writerCommitLogFile1);
-    writerCommitLogFile1.close();
-
-    gsonCommitLogfile2.toJson(commitLog2, writerCommitLogFile2);
-    writerCommitLogFile2.close();
-
-    gsonCommitLogfile3.toJson(commitLog3, writerCommitLogFile3);
-    writerCommitLogFile3.close();
-
     FileOutputStream fosMetaDataInfo = null;
     try{
+      writerCommitLogFile1 = new FileWriter(commitLogTableFilePath1);
+      gsonCommitLogfile1.toJson(commitLog1, writerCommitLogFile1);
+
+      writerCommitLogFile2 = new FileWriter(commitLogTableFilePath2);
+      gsonCommitLogfile2.toJson(commitLog2, writerCommitLogFile2);
+
+      writerCommitLogFile3 = new FileWriter(commitLogTableFilePath3);
+      gsonCommitLogfile3.toJson(commitLog3, writerCommitLogFile3 );
+
       fosMetaDataInfo = new FileOutputStream(metaDataInfoFilePath);
       MetaDataInfoSizesWriter = new FileWriter(metaDataInfoSizesFilePath);
       gsonMetaDataInfoSizes.toJson(metaDataInfoSizes, MetaDataInfoSizesWriter);
+
       for (ByteString bytes : metaDataInfo) {
         bytes.writeTo(fosMetaDataInfo);
       }
@@ -150,6 +165,30 @@ public class ExportNessieRepo {
     } catch (IOException e) {
       e.printStackTrace();
     }  finally {
+      if(writerCommitLogFile1 != null)
+      {
+        try{
+          writerCommitLogFile1.close();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+      }
+      if(writerCommitLogFile2 != null)
+      {
+        try{
+          writerCommitLogFile2.close();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+      }
+      if(writerCommitLogFile3 != null)
+      {
+        try{
+          writerCommitLogFile3.close();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+      }
       if (MetaDataInfoSizesWriter != null) {
         try {
           MetaDataInfoSizesWriter.close();
@@ -163,7 +202,7 @@ public class ExportNessieRepo {
         try{
           fosMetaDataInfo.close();
       } catch (IOException e) {
-          throw new RuntimeException(e);
+          e.printStackTrace();
         }
       }
 
@@ -183,7 +222,7 @@ public class ExportNessieRepo {
     try{
       fosDescTable = new FileOutputStream(repoDescFilePath);
       repoProps.writeTo(fosDescTable);
-    } catch (IOException e) {
+    } catch (FileNotFoundException e) {
       throw new RuntimeException(e);
     } finally {
       if(fosDescTable != null)
@@ -191,7 +230,7 @@ public class ExportNessieRepo {
         try {
           fosDescTable.close();
         } catch (IOException e) {
-          throw new RuntimeException(e);
+          e.printStackTrace();
         }
       }
     }
@@ -204,7 +243,7 @@ public class ExportNessieRepo {
     List<RefLog> refLogList = refLogTable.collect(Collectors.toList());
 
     String refLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/refLogTableProto";
-    FileOutputStream fosRefLog = new FileOutputStream(refLogTableFilePath);
+    List<AdapterTypes.RefLogEntry> refLogEntries = new ArrayList<AdapterTypes.RefLogEntry>();
 
     String refLogEntrySizesFilePath = "/Users/aditya.vemulapalli/Downloads/refLogEntrySizes.json";
     List <Integer> refLogEntrySizes = new ArrayList<Integer>();
@@ -212,24 +251,39 @@ public class ExportNessieRepo {
     /** serialize the RefLog */
     for (RefLog refLog : refLogList) {
       AdapterTypes.RefLogEntry refLogEntry = toProtoFromRefLog(refLog);
-      refLogEntry.writeTo(fosRefLog);
-
+      refLogEntries.add(refLogEntry);
       refLogEntrySizes.add(refLogEntry.getSerializedSize());
     }
-    fosRefLog.close();
 
     Writer refLogEntrySizesWriter = null;
+    FileOutputStream fosRefLog = null;
     Gson gsonRefLogSizes = new Gson();
-    /** Should write file writer using try resources block */
+
     try{
-       refLogEntrySizesWriter = new FileWriter(refLogEntrySizesFilePath);
-       gsonRefLogSizes.toJson(refLogEntrySizes, refLogEntrySizesWriter);
+      fosRefLog = new FileOutputStream(refLogTableFilePath);
+      for(AdapterTypes.RefLogEntry refLogEntry : refLogEntries)
+      {
+        refLogEntry.writeTo(fosRefLog);
+      }
+      refLogEntrySizesWriter = new FileWriter(refLogEntrySizesFilePath);
+      gsonRefLogSizes.toJson(refLogEntrySizes, refLogEntrySizesWriter);
+    } catch( FileNotFoundException e ) {
+      throw new RuntimeException(e);
     } catch (IOException e) {
       e.printStackTrace();
     } finally {
       if (refLogEntrySizesWriter != null) {
         try {
           refLogEntrySizesWriter.close();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+      }
+
+      if(fosRefLog != null)
+      {
+        try{
+          fosRefLog.close();
         } catch (IOException e) {
           e.printStackTrace();
         }
@@ -285,8 +339,7 @@ public class ExportNessieRepo {
     Stream<ByteString> parents = refLog.getParents().stream().map(Hash::asBytes);
     parents.forEach(proto::addParents);
 
-    AdapterTypes.RefLogEntry refLogEntry = proto.build();
-    return refLogEntry;
+    return proto.build();
   }
 
 //  ContentId contentId;
