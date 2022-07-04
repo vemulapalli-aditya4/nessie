@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import com.google.gson.Gson;
 import com.google.protobuf.ByteString;
 import org.projectnessie.model.CommitMeta;
 import org.projectnessie.model.Content;
@@ -31,7 +30,6 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.keyToProto;
 import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.toProto;
 
 public class ExportNessieRepoNew  {
@@ -60,19 +58,66 @@ public class ExportNessieRepoNew  {
 
     Stream<CommitLogEntry> commitLogTable =  databaseAdapter.scanAllCommitLogEntries();
     List<CommitLogEntry> commitLogList = commitLogTable.collect(Collectors.toList());
+    List<AdapterTypes.CommitLogEntry> commitLogEntries = new ArrayList<AdapterTypes.CommitLogEntry>();
+    List<Integer> commitLogEntrySizes = new ArrayList<Integer>();
+    String commitLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/commitLogFile";
 
     for( CommitLogEntry commitLogEntry : commitLogList)
     {
         AdapterTypes.CommitLogEntry protoOriginal = toProto(commitLogEntry);
         List<KeyWithBytes> puts = commitLogEntry.getPuts();
 
+        /** Array List ??*/
+        List<KeyWithBytes> newPuts  = new ArrayList<>();
         ByteString value;
         for (KeyWithBytes put : puts) {
+          /** Modify the value */
           value = put.getValue();
           KeyWithBytes newPut = KeyWithBytes.of( put.getKey(), put.getContentId() , put.getType() , value);
+          newPuts.add(newPut);
         }
+
+        AdapterTypes.CommitLogEntry protoModified = AdapterTypes.CommitLogEntry.newBuilder()
+          .mergeFrom(protoOriginal)
+          .clearParents()
+          .addParents(commitLogEntry.getParents().get(0).asBytes())
+          .clearKeyListDistance()
+          .clearKeyListIds()
+          .clearKeyList()
+          .clearPuts()
+          /** Must use .addAllPuts() to add new puts */
+          .build();
+
+          commitLogEntries.add(protoModified);
+          commitLogEntrySizes.add(protoModified.getSerializedSize());
     }
 
+    FileOutputStream fosCommitLog = null;
+    try{
+      fosCommitLog = new FileOutputStream(commitLogTableFilePath);
+      for(int i = 0 ; i < commitLogEntries.size(); i++)
+      {
+        ByteBuffer bb = ByteBuffer.allocate(4);
+        bb.putInt(commitLogEntrySizes.get(i));
+        byte[] bytes = bb.array();
+        fosCommitLog.write(bytes);
+        commitLogEntries.get(i).writeTo(fosCommitLog);
+      }
+    } catch( FileNotFoundException e ) {
+      throw new RuntimeException(e);
+    } catch (IOException e) {
+      e.printStackTrace();
+    } finally {
+      if(fosCommitLog != null)
+      {
+        try{
+          fosCommitLog.close();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+      }
+
+    }
 
     /**************************************************************************************************/
 
