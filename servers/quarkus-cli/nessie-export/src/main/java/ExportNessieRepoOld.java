@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonIOException;
 import org.projectnessie.model.CommitMeta;
 import org.projectnessie.model.Content;
 import org.projectnessie.server.store.TableCommitMetaStoreWorker;
@@ -35,12 +33,12 @@ import java.util.stream.Stream;
 import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.keyToProto;
 import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.toProto;
 
-public class ExportNessieRepo {
+public class ExportNessieRepoOld {
 
   DatabaseAdapter databaseAdapter;
 
   StoreWorker<Content, CommitMeta, Content.Type> storeWorker = new TableCommitMetaStoreWorker();
-  public ExportNessieRepo() throws FileNotFoundException {
+  public ExportNessieRepoOld() throws FileNotFoundException {
   }
 
   public void getTables( ) throws RefLogNotFoundException, ReferenceNotFoundException, IOException {
