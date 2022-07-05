@@ -53,6 +53,32 @@ public class ExportNessieRepoNew  {
     Stream<ReferenceInfo<ByteString>> namedReferences = databaseAdapter.namedRefs(params);
     List<ReferenceInfo<ByteString>> namedReferencesList = namedReferences.collect(Collectors.toList());
 
+    String namedRefsTableFilePath = "/Users/aditya.vemulapalli/Downloads/namedRefs.json";
+    Writer writer = null;
+    Gson gson = new Gson();
+
+    /**Using GSON for serialization and de - serialization*/
+    /** Serialization is straight forward , deserialization must be done using custom deserializer */
+
+    /**Gson gson = new GsonBuilder().create(); --->for non readable format */
+
+    try{
+      writer = new FileWriter(namedRefsTableFilePath);
+      gson.toJson(namedReferencesList, writer);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    } finally {
+      if(writer != null)
+      {
+        try {
+          writer.close();
+        }
+        catch(IOException e){
+          e.printStackTrace();
+        }
+      }
+    }
+
     /**************************************************************************************************/
 
     Stream<CommitLogEntry> commitLogTable =  databaseAdapter.scanAllCommitLogEntries();
