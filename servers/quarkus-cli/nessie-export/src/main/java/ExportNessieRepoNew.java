@@ -21,12 +21,15 @@ import org.projectnessie.server.store.TableCommitMetaStoreWorker;
 import org.projectnessie.versioned.*;
 import org.projectnessie.versioned.persist.adapter.*;
 import org.projectnessie.versioned.persist.serialize.AdapterTypes;
+import org.projectnessie.versioned.persist.store.PersistVersionStore;
 
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -62,6 +65,20 @@ public class ExportNessieRepoNew  {
     List<Integer> commitLogEntrySizes = new ArrayList<Integer>();
     String commitLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/commitLogFile";
 
+    VersionStore<Content, CommitMeta, Content.Type> versionStore = new PersistVersionStore<>(databaseAdapter, storeWorker);
+
+    ByteString onReferenceValue;
+
+    Supplier<ByteString> globalState;
+
+    Content content ;
+
+    ContentId contentId;
+
+    Optional<ContentIdAndBytes> contentIdAndBytes ;
+
+    ByteString value;
+
     for( CommitLogEntry commitLogEntry : commitLogList)
     {
         AdapterTypes.CommitLogEntry protoOriginal = toProto(commitLogEntry);
@@ -69,11 +86,16 @@ public class ExportNessieRepoNew  {
 
         /** Array List ??*/
         List<KeyWithBytes> newPuts  = new ArrayList<>();
-        ByteString value;
         for (KeyWithBytes put : puts) {
           /** Modify the value */
           value = put.getValue();
-          KeyWithBytes newPut = KeyWithBytes.of( put.getKey(), put.getContentId() , put.getType() , value);
+          contentId = put.getContentId();
+          contentIdAndBytes = databaseAdapter.globalContent(contentId);
+          onReferenceValue = value;
+
+          // content = storeWorker.valueFromStore(onReferenceValue, globalState);
+
+          KeyWithBytes newPut = KeyWithBytes.of( put.getKey(), contentId , put.getType() , value);
           newPuts.add(newPut);
         }
 
@@ -245,19 +267,9 @@ public class ExportNessieRepoNew  {
     return proto.build();
   }
 
-//  ContentId contentId;
-//
-//  Optional<ContentIdAndBytes> globalContent = databaseAdapter.globalContent(contentId);
-//
-//  ByteString onReferenceValue;
-//
+
 //  Supplier<ByteString> globalState ;
 //
 //  CONTENT content1 = storeWorker.valueFromStore(onReferenceValue, globalState );
-//
-//  Content content;
-//
-//  VersionStore<Content, CommitMeta, Content.Type> versionStore =
-//    new PersistVersionStore<>(databaseAdapter, storeWorker);
 
 }
