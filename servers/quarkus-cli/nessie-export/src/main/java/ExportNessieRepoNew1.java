@@ -35,12 +35,12 @@ import java.util.stream.Stream;
 
 import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.toProto;
 
-public class ExportNessieRepoNew  {
+public class ExportNessieRepoNew1  {
 
   DatabaseAdapter databaseAdapter;
 
   StoreWorker<Content, CommitMeta, Content.Type> storeWorker = new TableCommitMetaStoreWorker();
-  public ExportNessieRepoNew() throws FileNotFoundException {
+  public ExportNessieRepoNew1() throws FileNotFoundException {
   }
 
   /** Actually should take export directory location string as parameter */
@@ -126,26 +126,24 @@ public class ExportNessieRepoNew  {
 
     String refLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/refLogTableProto";
     List<AdapterTypes.RefLogEntry> refLogEntries = new ArrayList<AdapterTypes.RefLogEntry>();
-    List <Integer> refLogEntrySizes = new ArrayList<Integer>();
 
     for (RefLog refLog : refLogList) {
       AdapterTypes.RefLogEntry refLogEntry = toProtoFromRefLog(refLog);
       refLogEntries.add(refLogEntry);
-      refLogEntrySizes.add(refLogEntry.getSerializedSize());
     }
 
     FileOutputStream fosRefLog = null;
     try{
       fosRefLog = new FileOutputStream(refLogTableFilePath);
-      for(int i = 0 ; i < refLogEntries.size(); i++)
-      {
+      for (AdapterTypes.RefLogEntry refLogEntry : refLogEntries) {
+
+        byte[] refLogEntryByteArray = refLogEntry.toByteArray();
+        int len = refLogEntryByteArray.length;
         ByteBuffer bb = ByteBuffer.allocate(4);
-        int val = refLogEntrySizes.get(i);
-        bb.putInt(val);
+        bb.putInt(len);
         byte[] bytes = bb.array();
         fosRefLog.write(bytes);
-        refLogEntries.get(i).writeTo(fosRefLog);
-        // fosRefLog.write(refLogEntries.get(i).toByteArray());
+        fosRefLog.write(refLogEntryByteArray);
       }
     } catch( FileNotFoundException e ) {
       throw new RuntimeException(e);
