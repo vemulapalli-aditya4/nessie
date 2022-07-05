@@ -25,10 +25,8 @@ import org.projectnessie.versioned.persist.store.PersistVersionStore;
 
 import java.io.*;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -65,19 +63,24 @@ public class ExportNessieRepoNew  {
     List<Integer> commitLogEntrySizes = new ArrayList<Integer>();
     String commitLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/commitLogFile";
 
-    VersionStore<Content, CommitMeta, Content.Type> versionStore = new PersistVersionStore<>(databaseAdapter, storeWorker);
-
     ByteString onReferenceValue;
-
-    Supplier<ByteString> globalState;
 
     Content content ;
 
     ContentId contentId;
 
-    Optional<ContentIdAndBytes> contentIdAndBytes ;
-
     ByteString value;
+
+    Map<ContentId, ByteString> globalContents = new HashMap<>();
+    Function<KeyWithBytes, ByteString> getGlobalContents =
+      (put) ->
+        globalContents.computeIfAbsent(
+          put.getContentId(),
+          cid ->
+            databaseAdapter
+              .globalContent(put.getContentId())
+              .map(ContentIdAndBytes::getValue)
+              .orElse(null));
 
     for( CommitLogEntry commitLogEntry : commitLogList)
     {
@@ -87,13 +90,12 @@ public class ExportNessieRepoNew  {
         /** Array List ??*/
         List<KeyWithBytes> newPuts  = new ArrayList<>();
         for (KeyWithBytes put : puts) {
-          /** Modify the value */
+
+          /** Modify the value ?? */
           value = put.getValue();
           contentId = put.getContentId();
-          contentIdAndBytes = databaseAdapter.globalContent(contentId);
           onReferenceValue = value;
-
-          // content = storeWorker.valueFromStore(onReferenceValue, globalState);
+          content = storeWorker.valueFromStore(onReferenceValue, () -> getGlobalContents.apply(put) ) ;
 
           KeyWithBytes newPut = KeyWithBytes.of( put.getKey(), contentId , put.getType() , value);
           newPuts.add(newPut);
