@@ -43,14 +43,18 @@ public class ExportNessieRepoNew  {
   public ExportNessieRepoNew() throws FileNotFoundException {
   }
 
-  public void getTables( ) throws RefLogNotFoundException, ReferenceNotFoundException, IOException {
-
-    /** handle the exceptions */
-
-    /**************************************************************************************************/
+  /** Actually should take export directory location string as parameter */
+  public void exportNamedRefs()
+  {
+    /**Do the params should be DEFAULT ??*/
     GetNamedRefsParams params = GetNamedRefsParams.DEFAULT;
 
-    Stream<ReferenceInfo<ByteString>> namedReferences = databaseAdapter.namedRefs(params);
+    Stream<ReferenceInfo<ByteString>> namedReferences = null;
+    try {
+      namedReferences = databaseAdapter.namedRefs(params);
+    } catch (ReferenceNotFoundException e) {
+      throw new RuntimeException(e);
+    }
     List<ReferenceInfo<ByteString>> namedReferencesList = namedReferences.collect(Collectors.toList());
 
     String namedRefsTableFilePath = "/Users/aditya.vemulapalli/Downloads/namedRefs.json";
@@ -59,8 +63,6 @@ public class ExportNessieRepoNew  {
 
     /**Using GSON for serialization and de - serialization*/
     /** Serialization is straight forward , deserialization must be done using custom deserializer */
-
-    /**Gson gson = new GsonBuilder().create(); --->for non readable format */
 
     try{
       writer = new FileWriter(namedRefsTableFilePath);
@@ -78,110 +80,22 @@ public class ExportNessieRepoNew  {
         }
       }
     }
+  }
 
-    /**************************************************************************************************/
-
-    Stream<CommitLogEntry> commitLogTable =  databaseAdapter.scanAllCommitLogEntries();
-    List<CommitLogEntry> commitLogList = commitLogTable.collect(Collectors.toList());
-    List<AdapterTypes.CommitLogEntry> commitLogEntries = new ArrayList<AdapterTypes.CommitLogEntry>();
-    List<Integer> commitLogEntrySizes = new ArrayList<Integer>();
-    String commitLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/commitLogFile";
-
-    ByteString onReferenceValue;
-
-    Content content ;
-
-    ContentId contentId;
-
-    ByteString value;
-
-    Map<ContentId, ByteString> globalContents = new HashMap<>();
-    Function<KeyWithBytes, ByteString> getGlobalContents =
-      (put) ->
-        globalContents.computeIfAbsent(
-          put.getContentId(),
-          cid ->
-            databaseAdapter
-              .globalContent(put.getContentId())
-              .map(ContentIdAndBytes::getValue)
-              .orElse(null));
-
-    for( CommitLogEntry commitLogEntry : commitLogList)
-    {
-        AdapterTypes.CommitLogEntry protoOriginal = toProto(commitLogEntry);
-        List<KeyWithBytes> puts = commitLogEntry.getPuts();
-
-        /** Array List ??*/
-        List<KeyWithBytes> newPuts  = new ArrayList<>();
-        for (KeyWithBytes put : puts) {
-
-          /** Modify the value ?? */
-          value = put.getValue();
-          contentId = put.getContentId();
-          onReferenceValue = value;
-          content = storeWorker.valueFromStore(onReferenceValue, () -> getGlobalContents.apply(put) ) ;
-
-          KeyWithBytes newPut = KeyWithBytes.of( put.getKey(), contentId , put.getType() , value);
-          newPuts.add(newPut);
-        }
-
-        AdapterTypes.CommitLogEntry protoModified = AdapterTypes.CommitLogEntry.newBuilder()
-          .mergeFrom(protoOriginal)
-          .clearParents()
-          .addParents(commitLogEntry.getParents().get(0).asBytes())
-          .clearKeyListDistance()
-          .clearKeyListIds()
-          .clearKeyList()
-          .clearPuts()
-          /** Must use .addAllPuts() to add new puts */
-          .build();
-
-          commitLogEntries.add(protoModified);
-          commitLogEntrySizes.add(protoModified.getSerializedSize());
-    }
-
-    FileOutputStream fosCommitLog = null;
-    try{
-      fosCommitLog = new FileOutputStream(commitLogTableFilePath);
-      for(int i = 0 ; i < commitLogEntries.size(); i++)
-      {
-        ByteBuffer bb = ByteBuffer.allocate(4);
-        bb.putInt(commitLogEntrySizes.get(i));
-        byte[] bytes = bb.array();
-        fosCommitLog.write(bytes);
-        commitLogEntries.get(i).writeTo(fosCommitLog);
-      }
-    } catch( FileNotFoundException e ) {
-      throw new RuntimeException(e);
-    } catch (IOException e) {
-      e.printStackTrace();
-    } finally {
-      if(fosCommitLog != null)
-      {
-        try{
-          fosCommitLog.close();
-        } catch (IOException e) {
-          e.printStackTrace();
-        }
-      }
-
-    }
-
-    /**************************************************************************************************/
-
-
+  /** Actually should take export directory location string as parameter */
+  public void exportRepoDesc()
+  {
     RepoDescription repoDescTable = databaseAdapter.fetchRepositoryDescription();
     // Serializing Repository description
     AdapterTypes.RepoProps repoProps = toProto(repoDescTable);
     // protoc -I=. --java_out=. persist.proto
     String repoDescFilePath = "/Users/aditya.vemulapalli/Downloads/repoDescProto";
 
-    /** Forgot try " with - resources " to handle the exception */
     FileOutputStream fosDescTable = null;
     try{
       fosDescTable = new FileOutputStream(repoDescFilePath);
       repoProps.writeTo(fosDescTable);
-    } catch (FileNotFoundException e) {
+    } catch (IOException e) {
       throw new RuntimeException(e);
     } finally {
       if(fosDescTable != null)
@@ -196,11 +110,17 @@ public class ExportNessieRepoNew  {
 
     /**Simple Deserialization Logic --
      * AdapterTypes.RepoProps repoProps = AdapterTypes.RepoProps.newBuilder().mergeFrom(new FileInputStream( repoDescFilePath )).build() ; */
+  }
 
-    /**************************************************************************************************/
-
-    /** test null works or not */
-    Stream<RefLog> refLogTable = databaseAdapter.refLog(null);
+  /** Actually should take export directory location string as parameter */
+  public void exportRefLogTable()
+  {
+    Stream<RefLog> refLogTable = null;
+    try {
+      refLogTable = databaseAdapter.refLog(null);
+    } catch (RefLogNotFoundException e) {
+      throw new RuntimeException(e);
+    }
     /** Will the list be in the same order of stream ( is Stream an actual order of RefLogTable )  */
     List<RefLog> refLogList = refLogTable.collect(Collectors.toList());
 
@@ -208,7 +128,6 @@ public class ExportNessieRepoNew  {
     List<AdapterTypes.RefLogEntry> refLogEntries = new ArrayList<AdapterTypes.RefLogEntry>();
     List <Integer> refLogEntrySizes = new ArrayList<Integer>();
 
-    /** serialize the RefLog */
     for (RefLog refLog : refLogList) {
       AdapterTypes.RefLogEntry refLogEntry = toProtoFromRefLog(refLog);
       refLogEntries.add(refLogEntry);
@@ -241,8 +160,100 @@ public class ExportNessieRepoNew  {
       }
 
     }
+  }
 
-    /**************************************************************************************************/
+  /** Actually should take export directory location string as parameter */
+  public void exportCommitLogTable()
+  {
+    Stream<CommitLogEntry> commitLogTable =  databaseAdapter.scanAllCommitLogEntries();
+    List<CommitLogEntry> commitLogList = commitLogTable.collect(Collectors.toList());
+    List<AdapterTypes.CommitLogEntry> commitLogEntries = new ArrayList<AdapterTypes.CommitLogEntry>();
+    List<Integer> commitLogEntrySizes = new ArrayList<Integer>();
+    String commitLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/commitLogFile";
+
+    ByteString onReferenceValue;
+
+    Content content;
+
+    ContentId contentId;
+
+    ByteString value;
+
+    Map<ContentId, ByteString> globalContents = new HashMap<>();
+    Function<KeyWithBytes, ByteString> getGlobalContents =
+      (put) ->
+        globalContents.computeIfAbsent(
+          put.getContentId(),
+          cid ->
+            databaseAdapter
+              .globalContent(put.getContentId())
+              .map(ContentIdAndBytes::getValue)
+              .orElse(null));
+
+    for( CommitLogEntry commitLogEntry : commitLogList)
+    {
+      AdapterTypes.CommitLogEntry protoOriginal = toProto(commitLogEntry);
+      List<KeyWithBytes> puts = commitLogEntry.getPuts();
+
+      /** Array List ??*/
+      List<KeyWithBytes> newPuts  = new ArrayList<>();
+      for (KeyWithBytes put : puts) {
+
+        /** Modify the value ?? */
+        value = put.getValue();
+        contentId = put.getContentId();
+        onReferenceValue = value;
+        content = storeWorker.valueFromStore(onReferenceValue, () -> getGlobalContents.apply(put) ) ;
+
+        KeyWithBytes newPut = KeyWithBytes.of( put.getKey(), contentId , put.getType() , value);
+        newPuts.add(newPut);
+      }
+
+      AdapterTypes.CommitLogEntry protoModified = AdapterTypes.CommitLogEntry.newBuilder()
+        .mergeFrom(protoOriginal)
+        .clearParents()
+        .addParents(commitLogEntry.getParents().get(0).asBytes())
+        .clearKeyListDistance()
+        .clearKeyListIds()
+        .clearKeyList()
+        .clearPuts()
+        // .addAllPuts(newPuts)
+        /** Must use .addAllPuts() to add new puts */
+        .build();
+
+      commitLogEntries.add(protoModified);
+      commitLogEntrySizes.add(protoModified.getSerializedSize());
+    }
+
+    FileOutputStream fosCommitLog = null;
+    try{
+      fosCommitLog = new FileOutputStream(commitLogTableFilePath);
+      for(int i = 0 ; i < commitLogEntries.size(); i++)
+      {
+        ByteBuffer bb = ByteBuffer.allocate(4);
+        bb.putInt(commitLogEntrySizes.get(i));
+        byte[] bytes = bb.array();
+        fosCommitLog.write(bytes);
+        commitLogEntries.get(i).writeTo(fosCommitLog);
+      }
+    } catch( FileNotFoundException e ) {
+      throw new RuntimeException(e);
+    } catch (IOException e) {
+      e.printStackTrace();
+    } finally {
+      if(fosCommitLog != null)
+      {
+        try{
+          fosCommitLog.close();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+      }
+
+    }
+  }
+  public void getTables( ){
+
   }
 
   public AdapterTypes.RefLogEntry toProtoFromRefLog(RefLog refLog)
@@ -292,8 +303,5 @@ public class ExportNessieRepoNew  {
 
     return proto.build();
   }
-//  Supplier<ByteString> globalState ;
-//
-//  CONTENT content1 = storeWorker.valueFromStore(onReferenceValue, globalState );
 
 }
