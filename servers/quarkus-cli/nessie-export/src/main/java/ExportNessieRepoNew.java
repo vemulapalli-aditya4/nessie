@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+import com.google.gson.Gson;
 import com.google.protobuf.ByteString;
+import org.apache.commons.lang3.SerializationUtils;
 import org.projectnessie.model.CommitMeta;
 import org.projectnessie.model.Content;
 import org.projectnessie.server.store.TableCommitMetaStoreWorker;
@@ -50,10 +52,6 @@ public class ExportNessieRepoNew  {
 
     Stream<ReferenceInfo<ByteString>> namedReferences = databaseAdapter.namedRefs(params);
     List<ReferenceInfo<ByteString>> namedReferencesList = namedReferences.collect(Collectors.toList());
-
-    for (ReferenceInfo<ByteString> byteStringReferenceInfo : namedReferencesList) {
-
-    }
 
     /**************************************************************************************************/
 
