@@ -152,6 +152,113 @@ public class ExportNessieRepoNew2 {
     }*/
   }
 
+  /** Actually should take export directory location string as parameter */
+  public void exportCommitLogTable()
+  {
+    String commitLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/commitLogFile";
+
+    Stream<CommitLogEntry> commitLogTable =  databaseAdapter.scanAllCommitLogEntries();
+
+    /**entries bounded cache*/
+    Map<ContentId, ByteString> globalContents = new HashMap<>();
+    Function<KeyWithBytes, ByteString> getGlobalContents =
+      (put) ->
+        globalContents.computeIfAbsent(
+          put.getContentId(),
+          cid ->
+            databaseAdapter
+              .globalContent(put.getContentId())
+              .map(ContentIdAndBytes::getValue)
+              .orElse(null));
+
+    Serializer<CommitMeta> metaSerializer = storeWorker.getMetadataSerializer();
+
+    commitLogTable.map(x -> {
+      long createdTime = x.getCreatedTime();
+      long commitSeq = x.getCommitSeq();
+      String hash = x.getHash().asString();
+
+      //ask 1st parent is first or last
+      String parent_1st = x.getParents().get(0).asString();
+
+      List<String> additionalParents = new ArrayList<String>();
+
+      List<Hash> hashAdditionalParents = x.getAdditionalParents();
+      for (Hash hashAdditionalParent : hashAdditionalParents) {
+        additionalParents.add(hashAdditionalParent.asString());
+      }
+
+      List<String> deletes = new ArrayList<String>();
+      List<Integer> noOfStringsInKeys = new ArrayList<Integer>();
+
+      List<Key> keyDeletes = x.getDeletes();
+      for (Key keyDelete : keyDeletes) {
+
+        List<String> elements = keyDelete.getElements();
+
+        noOfStringsInKeys.add(elements.size());
+
+        deletes.addAll(elements);
+      }
+
+      List<KeyWithBytes> puts = x.getPuts();
+
+      ByteString metaDataByteString = x.getMetadata();
+
+      CommitMeta metaData = metaSerializer.fromBytes(metaDataByteString);
+
+
+      List<ContentId> contentIds = new ArrayList<ContentId>();
+      List<Content> contents = new ArrayList<>();
+      List<Key> putsKeys = new ArrayList<>();
+      for (KeyWithBytes put : puts) {
+        ContentId contentId = put.getContentId();
+        contentIds.add(contentId);
+
+        ByteString value = put.getValue();
+
+        Content content = storeWorker.valueFromStore(value, () -> getGlobalContents.apply(put));
+        contents.add(content);
+
+        Key key = put.getKey();
+        putsKeys.add(key);
+      }
+
+      /** Must Change This */
+      return null;
+    });
+
+//    FileOutputStream fosCommitLog = null;
+//    try{
+//      fosCommitLog = new FileOutputStream(commitLogTableFilePath);
+//      for(AdapterTypes.CommitLogEntry commitLogEntry : commitLogEntries)
+//      {
+//        byte[] arr = commitLogEntry.toByteArray();
+//        int len = arr.length;
+//        ByteBuffer bb = ByteBuffer.allocate(4);
+//        bb.putInt(len);
+//        byte[] bytes = bb.array();
+//        fosCommitLog.write(bytes);
+//        fosCommitLog.write(arr);
+//
+//      }
+//    } catch( FileNotFoundException e ) {
+//      throw new RuntimeException(e);
+//    } catch (IOException e) {
+//      e.printStackTrace();
+//    } finally {
+//      if(fosCommitLog != null)
+//      {
+//        try{
+//          fosCommitLog.close();
+//        } catch (IOException e) {
+//          e.printStackTrace();
+//        }
+//      }
+//
+//    }
+  }
+
   public void exportRefLogTable()
   {
     Stream<RefLog> refLogTable = null;
