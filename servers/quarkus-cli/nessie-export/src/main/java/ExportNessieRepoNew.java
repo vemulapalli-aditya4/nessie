@@ -56,7 +56,6 @@ public class ExportNessieRepoNew  {
       throw new RuntimeException(e);
     }
     List<ReferenceInfo<ByteString>> namedReferencesList = namedReferences.collect(Collectors.toList());
-
     String namedRefsTableFilePath = "/Users/aditya.vemulapalli/Downloads/namedRefs.json";
     Writer writer = null;
     Gson gson = new Gson();

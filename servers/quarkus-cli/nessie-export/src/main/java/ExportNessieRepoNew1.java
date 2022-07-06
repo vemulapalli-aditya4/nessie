@@ -27,12 +27,16 @@ import org.projectnessie.versioned.persist.store.PersistVersionStore;
 
 import java.io.*;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.protoToRepoDescription;
 import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.toProto;
 
 public class ExportNessieRepoNew1  {
@@ -91,10 +95,12 @@ public class ExportNessieRepoNew1  {
     // protoc -I=. --java_out=. persist.proto
     String repoDescFilePath = "/Users/aditya.vemulapalli/Downloads/repoDescProto";
 
+    byte[] arr = repoProps.toByteArray();
+
     FileOutputStream fosDescTable = null;
     try{
       fosDescTable = new FileOutputStream(repoDescFilePath);
-      repoProps.writeTo(fosDescTable);
+      fosDescTable.write(arr);
     } catch (IOException e) {
       throw new RuntimeException(e);
     } finally {
@@ -107,9 +113,15 @@ public class ExportNessieRepoNew1  {
         }
       }
     }
+//    /** Deserialization Logic*/
+//    Path path = Paths.get("/Users/aditya.vemulapalli/Downloads/repoDescProto");
+//    try {
+//      byte[] data = Files.readAllBytes(path);
+//      RepoDescription repoDesc = protoToRepoDescription(data);
+//    } catch (IOException e) {
+//      throw new RuntimeException(e);
+//    }
 
-    /**Simple Deserialization Logic --
-     * AdapterTypes.RepoProps repoProps = AdapterTypes.RepoProps.newBuilder().mergeFrom(new FileInputStream( repoDescFilePath )).build() ; */
   }
 
   /** Actually should take export directory location string as parameter */
@@ -168,10 +180,7 @@ public class ExportNessieRepoNew1  {
     Stream<CommitLogEntry> commitLogTable =  databaseAdapter.scanAllCommitLogEntries();
     List<CommitLogEntry> commitLogList = commitLogTable.collect(Collectors.toList());
     List<AdapterTypes.CommitLogEntry> commitLogEntries = new ArrayList<AdapterTypes.CommitLogEntry>();
-    List<Integer> commitLogEntrySizes = new ArrayList<Integer>();
     String commitLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/commitLogFile";
-
-    ByteString onReferenceValue;
 
     Content content;
 
@@ -202,8 +211,7 @@ public class ExportNessieRepoNew1  {
         /** Modify the value ?? */
         value = put.getValue();
         contentId = put.getContentId();
-        onReferenceValue = value;
-        content = storeWorker.valueFromStore(onReferenceValue, () -> getGlobalContents.apply(put) ) ;
+        content = storeWorker.valueFromStore(value, () -> getGlobalContents.apply(put) ) ;
 
         KeyWithBytes newPut = KeyWithBytes.of( put.getKey(), contentId , put.getType() , value);
         newPuts.add(newPut);
@@ -222,19 +230,21 @@ public class ExportNessieRepoNew1  {
         .build();
 
       commitLogEntries.add(protoModified);
-      commitLogEntrySizes.add(protoModified.getSerializedSize());
     }
 
     FileOutputStream fosCommitLog = null;
     try{
       fosCommitLog = new FileOutputStream(commitLogTableFilePath);
-      for(int i = 0 ; i < commitLogEntries.size(); i++)
+      for(AdapterTypes.CommitLogEntry commitLogEntry : commitLogEntries)
       {
+        byte[] arr = commitLogEntry.toByteArray();
+        int len = arr.length;
         ByteBuffer bb = ByteBuffer.allocate(4);
-        bb.putInt(commitLogEntrySizes.get(i));
+        bb.putInt(len);
         byte[] bytes = bb.array();
         fosCommitLog.write(bytes);
-        commitLogEntries.get(i).writeTo(fosCommitLog);
+        fosCommitLog.write(arr);
+
       }
     } catch( FileNotFoundException e ) {
       throw new RuntimeException(e);
