@@ -228,35 +228,6 @@ public class ExportNessieRepoNew2 {
       return null;
     });
 
-//    FileOutputStream fosCommitLog = null;
-//    try{
-//      fosCommitLog = new FileOutputStream(commitLogTableFilePath);
-//      for(AdapterTypes.CommitLogEntry commitLogEntry : commitLogEntries)
-//      {
-//        byte[] arr = commitLogEntry.toByteArray();
-//        int len = arr.length;
-//        ByteBuffer bb = ByteBuffer.allocate(4);
-//        bb.putInt(len);
-//        byte[] bytes = bb.array();
-//        fosCommitLog.write(bytes);
-//        fosCommitLog.write(arr);
-//
-//      }
-//    } catch( FileNotFoundException e ) {
-//      throw new RuntimeException(e);
-//    } catch (IOException e) {
-//      e.printStackTrace();
-//    } finally {
-//      if(fosCommitLog != null)
-//      {
-//        try{
-//          fosCommitLog.close();
-//        } catch (IOException e) {
-//          e.printStackTrace();
-//        }
-//      }
-//
-//    }
   }
 
   public void exportRefLogTable()
