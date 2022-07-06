@@ -196,6 +196,7 @@ public class ExportNessieRepoNew1  {
 
     ByteString value;
 
+    //entries bounded cache
     Map<ContentId, ByteString> globalContents = new HashMap<>();
     Function<KeyWithBytes, ByteString> getGlobalContents =
       (put) ->
