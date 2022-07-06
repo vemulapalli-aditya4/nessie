@@ -172,6 +172,14 @@ public class ExportNessieRepoNew1  {
       }
 
     }
+
+//    /** Deserialization Logic*/
+//    Path path = Paths.get("/Users/aditya.vemulapalli/Downloads/refLogTableProto");
+//    try {
+//      byte[] data = Files.readAllBytes(path);
+//    } catch (IOException e) {
+//      throw new RuntimeException(e);
+//    }
   }
 
   /** Actually should take export directory location string as parameter */
@@ -261,6 +269,14 @@ public class ExportNessieRepoNew1  {
       }
 
     }
+
+//    /** Deserialization Logic*/
+//    Path path = Paths.get("/Users/aditya.vemulapalli/Downloads/commitLogFile");
+//    try {
+//      byte[] data = Files.readAllBytes(path);
+//    } catch (IOException e) {
+//      throw new RuntimeException(e);
+//    }
   }
   public void getTables( ){
 
