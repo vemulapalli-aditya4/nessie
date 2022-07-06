@@ -42,15 +42,21 @@ public class CommitLogClass1 implements Serializable {
 
   public List<Content> contents;
 
-  public List<ContentId> contentIds;
+  // public List<ContentId> contentIds;
 
-  public List<Key> putsKeys;
+  public List<String> contentIds;
 
+  // public List<Key> putsKeys;
+
+  public List<String> putsKeyStrings;
+
+  public List<Integer> putsKeyNoOfStrings;
   public CommitMeta metaData;
 
   public CommitLogClass1(long createdTime, long commitSeq, String hash, String parent_1st,
                          List<String> additionalParents, List<String > deletes, List<Integer> noOfStringsInKeys,
-                         List<Content> contents, CommitMeta metaData, List<ContentId> contentIds, List<Key> putsKeys) {
+                         List<Content> contents, CommitMeta metaData, List<String> contentIds ,
+                         List<String> putsKeyStrings, List<Integer> putsKeyNoOfStrings) {
     this.commitSeq = commitSeq;
     this.createdTime = createdTime;
     this.hash = hash;
@@ -61,7 +67,9 @@ public class CommitLogClass1 implements Serializable {
     this.contents = contents;
     this.metaData = metaData;
     this.contentIds = contentIds;
-    this.putsKeys = putsKeys;
+    // this.putsKeys = putsKeys;
+    this.putsKeyStrings = putsKeyStrings;
+    this.putsKeyNoOfStrings = putsKeyNoOfStrings;
   }
 
 }

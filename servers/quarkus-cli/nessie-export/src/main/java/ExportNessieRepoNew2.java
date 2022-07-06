@@ -208,12 +208,17 @@ public class ExportNessieRepoNew2 {
       CommitMeta metaData = metaSerializer.fromBytes(metaDataByteString);
 
 
-      List<ContentId> contentIds = new ArrayList<ContentId>();
+      // List<ContentId> contentIds = new ArrayList<ContentId>();
+      // List<Key> putsKeys = new ArrayList<>();
+
+      List <String> contentIds = new ArrayList<>();
       List<Content> contents = new ArrayList<>();
-      List<Key> putsKeys = new ArrayList<>();
+      List<String> putsKeyStrings = new ArrayList<>();
+      List<Integer> putsKeyNoOfStrings = new ArrayList<>();
+
       for (KeyWithBytes put : puts) {
         ContentId contentId = put.getContentId();
-        contentIds.add(contentId);
+        contentIds.add(contentId.getId());
 
         ByteString value = put.getValue();
 
@@ -221,7 +226,10 @@ public class ExportNessieRepoNew2 {
         contents.add(content);
 
         Key key = put.getKey();
-        putsKeys.add(key);
+        // putsKeys.add(key);
+        List<String> elements1 = key.getElements();
+        putsKeyNoOfStrings.add(elements1.size());
+        putsKeyStrings.addAll(elements1);
       }
 
       /** Must Change This */
