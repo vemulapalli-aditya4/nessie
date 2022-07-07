@@ -173,68 +173,104 @@ public class ExportNessieRepoNew2 {
 
     Serializer<CommitMeta> metaSerializer = storeWorker.getMetadataSerializer();
 
-    commitLogTable.map(x -> {
-      long createdTime = x.getCreatedTime();
-      long commitSeq = x.getCommitSeq();
-      String hash = x.getHash().asString();
+    List<CommitLogClass1> commitLogList = new ArrayList<CommitLogClass1>();
 
-      //ask 1st parent is first or last
-      String parent_1st = x.getParents().get(0).asString();
+    FileOutputStream fileOut = null;
+    ObjectOutputStream out = null;
 
-      List<String> additionalParents = new ArrayList<String>();
+    try {
+      fileOut = new FileOutputStream(commitLogTableFilePath);
+      out = new ObjectOutputStream(fileOut);
 
-      List<Hash> hashAdditionalParents = x.getAdditionalParents();
-      for (Hash hashAdditionalParent : hashAdditionalParents) {
-        additionalParents.add(hashAdditionalParent.asString());
-      }
+      commitLogTable.map(x -> {
+        long createdTime = x.getCreatedTime();
+        long commitSeq = x.getCommitSeq();
+        String hash = x.getHash().asString();
 
-      List<String> deletes = new ArrayList<String>();
-      List<Integer> noOfStringsInKeys = new ArrayList<Integer>();
+        //ask 1st parent is first or last
+        String parent_1st = x.getParents().get(0).asString();
 
-      List<Key> keyDeletes = x.getDeletes();
-      for (Key keyDelete : keyDeletes) {
+        List<String> additionalParents = new ArrayList<String>();
 
-        List<String> elements = keyDelete.getElements();
+        List<Hash> hashAdditionalParents = x.getAdditionalParents();
+        for (Hash hashAdditionalParent : hashAdditionalParents) {
+          additionalParents.add(hashAdditionalParent.asString());
+        }
 
-        noOfStringsInKeys.add(elements.size());
+        List<String> deletes = new ArrayList<String>();
+        List<Integer> noOfStringsInKeys = new ArrayList<Integer>();
 
-        deletes.addAll(elements);
-      }
+        List<Key> keyDeletes = x.getDeletes();
+        for (Key keyDelete : keyDeletes) {
 
-      List<KeyWithBytes> puts = x.getPuts();
+          List<String> elements = keyDelete.getElements();
 
-      ByteString metaDataByteString = x.getMetadata();
+          noOfStringsInKeys.add(elements.size());
 
-      CommitMeta metaData = metaSerializer.fromBytes(metaDataByteString);
+          deletes.addAll(elements);
+        }
+
+        List<KeyWithBytes> puts = x.getPuts();
+
+        ByteString metaDataByteString = x.getMetadata();
+
+        CommitMeta metaData = metaSerializer.fromBytes(metaDataByteString);
+
+        // System.out.println("hash is " + metaData.getHash());
+        // System.out.println("signed off by " + metaData.getSignedOffBy());
+        CommitMetaInfo commitMetaInfo = new CommitMetaInfo(metaData.getAuthor(), metaData.getCommitTime(), metaData.getAuthorTime(),
+          metaData.getHash(), metaData.getCommitter(), metaData.getMessage(), metaData.getProperties(), metaData.getSignedOffBy());
 
 
-      // List<ContentId> contentIds = new ArrayList<ContentId>();
-      // List<Key> putsKeys = new ArrayList<>();
+        // List<ContentId> contentIds = new ArrayList<ContentId>();
+        // List<Key> putsKeys = new ArrayList<>();
 
-      List <String> contentIds = new ArrayList<>();
-      List<Content> contents = new ArrayList<>();
-      List<String> putsKeyStrings = new ArrayList<>();
-      List<Integer> putsKeyNoOfStrings = new ArrayList<>();
+        List <String> contentIds = new ArrayList<>();
+        List<Content> contents = new ArrayList<>();
+        List<String> putsKeyStrings = new ArrayList<>();
+        List<Integer> putsKeyNoOfStrings = new ArrayList<>();
 
-      for (KeyWithBytes put : puts) {
-        ContentId contentId = put.getContentId();
-        contentIds.add(contentId.getId());
+        for (KeyWithBytes put : puts) {
+          ContentId contentId = put.getContentId();
+          contentIds.add(contentId.getId());
 
-        ByteString value = put.getValue();
+          ByteString value = put.getValue();
 
-        Content content = storeWorker.valueFromStore(value, () -> getGlobalContents.apply(put));
-        contents.add(content);
+          Content content = storeWorker.valueFromStore(value, () -> getGlobalContents.apply(put));
+          contents.add(content);
 
-        Key key = put.getKey();
-        // putsKeys.add(key);
-        List<String> elements1 = key.getElements();
-        putsKeyNoOfStrings.add(elements1.size());
-        putsKeyStrings.addAll(elements1);
-      }
+          Key key = put.getKey();
+          // putsKeys.add(key);
+          List<String> elements1 = key.getElements();
+          putsKeyNoOfStrings.add(elements1.size());
+          putsKeyStrings.addAll(elements1);
+        }
 
-      /** Must Change This */
-      return null;
-    });
+        return new CommitLogClass1(createdTime, commitSeq, hash, parent_1st, additionalParents, deletes, noOfStringsInKeys,
+          commitMetaInfo, contentIds, putsKeyStrings, putsKeyNoOfStrings);
+      }).forEach(commitLogList::add);
+
+      out.writeObject(commitLogList);
+      out.close();
+      fileOut.close();
+
+      /** Deserialization Logic */
+      /**FileInputStream fileIn = null;
+       * ObjectInputStream in = null;
+       * List<CommitLogClass1> commitLogClass1List = new ArrayList<CommitLogClass1>();
+       * try{
+       *    fileIn = new FileInputStream(commitLogTableFilePath);
+       *    in = new ObjectInputStream(fileIn);
+       *    commitLogClass1List = (ArrayList) in.readObject();
+       *    in.close();
+       *    fileIn.close();
+       * } catch (IOException | ClassNotFoundException e) {
+       *    throw new RuntimeException(e);
+       * }*/
+
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
 
   }
 
