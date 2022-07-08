@@ -311,7 +311,7 @@ public class ExportNessieRepoNew2 {
       });
 
       fosRefLog.close();
-
+      finalFosRefLog.close();
       refLogTable.close();
 
     } catch(IOException e ) {
@@ -352,7 +352,7 @@ public class ExportNessieRepoNew2 {
     } else if (Objects.equals(op, "COMMIT")) {
       operation = AdapterTypes.RefLogEntry.Operation.COMMIT;
     } else if ( Objects.equals(op, "DELETE_REFERENCE") ) {
-      operation = AdapterTypes.RefLogEntry.Operation.COMMIT;
+      operation = AdapterTypes.RefLogEntry.Operation.DELETE_REFERENCE;
     } else if (Objects.equals(op, "ASSIGN_REFERENCE") ) {
       operation = AdapterTypes.RefLogEntry.Operation.ASSIGN_REFERENCE;
     } else if (Objects.equals(op, "MERGE")) {
