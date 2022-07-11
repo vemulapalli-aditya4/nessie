@@ -41,6 +41,10 @@ public class ExportNessieRepo {
 
   StoreWorker<Content, CommitMeta, Content.Type> storeWorker = new TableCommitMetaStoreWorker();
 
+  public ExportNessieRepo(DatabaseAdapter databaseAdapter) {
+    this.databaseAdapter = databaseAdapter;
+  }
+
   /**Target Directory shouldn't have '/' at the end( because the path already has '/' when we initialize */
   public void exportRepoDesc(String targetDirectory )
   {
@@ -72,14 +76,14 @@ public class ExportNessieRepo {
       }
     }
 
-    /** Deserialization Logic*/
-    Path path = Paths.get(targetDirectory + "/repoDesc" );
-    try {
-      byte[] data = Files.readAllBytes(path);
-      RepoDescription repoDesc = protoToRepoDescription(data);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+//    /** Deserialization Logic*/
+//    Path path = Paths.get(targetDirectory + "/repoDesc" );
+//    try {
+//      byte[] data = Files.readAllBytes(path);
+//      RepoDescription repoDesc = protoToRepoDescription(data);
+//    } catch (IOException e) {
+//      throw new RuntimeException(e);
+//    }
 
   }
 
@@ -130,20 +134,20 @@ public class ExportNessieRepo {
       throw new RuntimeException(e);
     }
 
-    /** Deserialization Logic*/
-    FileInputStream fileIn = null;
-    ObjectInputStream in = null;
-    List<ReferenceInfoExport> readNamedRefsInfoList = new ArrayList<ReferenceInfoExport>();
-    try{
-      fileIn = new FileInputStream(namedRefsFilePath);
-      in = new ObjectInputStream(fileIn);
-
-      readNamedRefsInfoList = (ArrayList) in.readObject();
-      in.close();
-      fileIn.close();
-    } catch (IOException | ClassNotFoundException e) {
-      throw new RuntimeException(e);
-    }
+//    /** Deserialization Logic*/
+//    FileInputStream fileIn = null;
+//    ObjectInputStream in = null;
+//    List<ReferenceInfoExport> readNamedRefsInfoList = new ArrayList<ReferenceInfoExport>();
+//    try{
+//      fileIn = new FileInputStream(namedRefsFilePath);
+//      in = new ObjectInputStream(fileIn);
+//
+//      readNamedRefsInfoList = (ArrayList) in.readObject();
+//      in.close();
+//      fileIn.close();
+//    } catch (IOException | ClassNotFoundException e) {
+//      throw new RuntimeException(e);
+//    }
 
   }
 
@@ -195,32 +199,32 @@ public class ExportNessieRepo {
       throw new RuntimeException(e);
     }
 
-    /** Deserialization Logic*/
-    Path path = Paths.get(targetDirectory + "/refLogTable");
-    try {
-      byte[] data = Files.readAllBytes(path);
-      int noOfBytes = data.length;
-      List<RefLog> deserializedRefLogTable = new ArrayList<RefLog>();
-      // ByteBuffer byteBuffer = ByteBuffer.wrap(data);
-      int from = 0 ;
-      int size;
-      byte[] sizeArr;
-      byte[] obj;
-      while(noOfBytes != 0)
-      {
-        sizeArr = Arrays.copyOfRange(data, from, from + 4);
-        size = new BigInteger(sizeArr).intValue();
-        from += 4;
-        noOfBytes -= 4;
-        obj = Arrays.copyOfRange(data, from , from + size );
-        from += size;
-        noOfBytes -= size;
-        deserializedRefLogTable.add(protoToRefLog(obj));
-      }
-
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+//    /** Deserialization Logic*/
+//    Path path = Paths.get(targetDirectory + "/refLogTable");
+//    try {
+//      byte[] data = Files.readAllBytes(path);
+//      int noOfBytes = data.length;
+//      List<RefLog> deserializedRefLogTable = new ArrayList<RefLog>();
+//      // ByteBuffer byteBuffer = ByteBuffer.wrap(data);
+//      int from = 0 ;
+//      int size;
+//      byte[] sizeArr;
+//      byte[] obj;
+//      while(noOfBytes != 0)
+//      {
+//        sizeArr = Arrays.copyOfRange(data, from, from + 4);
+//        size = new BigInteger(sizeArr).intValue();
+//        from += 4;
+//        noOfBytes -= 4;
+//        obj = Arrays.copyOfRange(data, from , from + size );
+//        from += size;
+//        noOfBytes -= size;
+//        deserializedRefLogTable.add(protoToRefLog(obj));
+//      }
+//
+//    } catch (IOException e) {
+//      throw new RuntimeException(e);
+//    }
 
   }
 
@@ -347,51 +351,52 @@ public class ExportNessieRepo {
       throw new RuntimeException(e);
     }
 
-    /** Deserialization Logic*/
+//    /** Deserialization Logic*/
+//
+//    //For file 1
+//    FileInputStream fileIn = null;
+//    ObjectInputStream in = null;
+//    List<CommitLogClass1> readCommitLogList1 = new ArrayList<CommitLogClass1>();
+//    try{
+//      fileIn = new FileInputStream(commitLogTableFilePath1);
+//      in = new ObjectInputStream(fileIn);
+//
+//      readCommitLogList1 = (ArrayList) in.readObject();
+//      in.close();
+//      fileIn.close();
+//    } catch (IOException | ClassNotFoundException e) {
+//      throw new RuntimeException(e);
+//    }
+//
+//    //For file2
+//    Path pathFile2 = Paths.get(commitLogTableFilePath2);
+//    try {
+//      byte[] data = Files.readAllBytes(pathFile2);
+//      int noOfBytes = data.length;
+//      List<CommitLogClass2> deserializedRefLogTable = new ArrayList<CommitLogClass2>();
+//      int from = 0 ;
+//      int size;
+//      byte[] sizeArr;
+//      byte[] obj;
+//      int i = 0;
+//      while(noOfBytes != 0)
+//      {
+//        sizeArr = Arrays.copyOfRange(data, from, from + 4);
+//        size = new BigInteger(sizeArr).intValue();
+//        from += 4;
+//        noOfBytes -= 4;
+//        obj = Arrays.copyOfRange(data, from , from + size );
+//        from += size;
+//        noOfBytes -= size;
+//        ObjectMapper objectMapper = new ObjectMapper();
+//        CommitLogClass2 commitLogClass2 = objectMapper.readValue(obj, CommitLogClass2.class);
+//        deserializedRefLogTable.add(commitLogClass2);
+//        i++;
+//      }
+//    } catch (IOException e) {
+//      throw new RuntimeException(e);
+//    }
 
-    //For file 1
-    FileInputStream fileIn = null;
-    ObjectInputStream in = null;
-    List<CommitLogClass1> readCommitLogList1 = new ArrayList<CommitLogClass1>();
-    try{
-      fileIn = new FileInputStream(commitLogTableFilePath1);
-      in = new ObjectInputStream(fileIn);
-
-      readCommitLogList1 = (ArrayList) in.readObject();
-      in.close();
-      fileIn.close();
-    } catch (IOException | ClassNotFoundException e) {
-      throw new RuntimeException(e);
-    }
-
-    //For file2
-    Path pathFile2 = Paths.get(commitLogTableFilePath2);
-    try {
-      byte[] data = Files.readAllBytes(pathFile2);
-      int noOfBytes = data.length;
-      List<CommitLogClass2> deserializedRefLogTable = new ArrayList<CommitLogClass2>();
-      int from = 0 ;
-      int size;
-      byte[] sizeArr;
-      byte[] obj;
-      int i = 0;
-      while(noOfBytes != 0)
-      {
-        sizeArr = Arrays.copyOfRange(data, from, from + 4);
-        size = new BigInteger(sizeArr).intValue();
-        from += 4;
-        noOfBytes -= 4;
-        obj = Arrays.copyOfRange(data, from , from + size );
-        from += size;
-        noOfBytes -= size;
-        ObjectMapper objectMapper = new ObjectMapper();
-        CommitLogClass2 commitLogClass2 = objectMapper.readValue(obj, CommitLogClass2.class);
-        deserializedRefLogTable.add(commitLogClass2);
-        i++;
-      }
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
   }
 
   public AdapterTypes.RefLogEntry toProtoFromRefLog(RefLog refLog)

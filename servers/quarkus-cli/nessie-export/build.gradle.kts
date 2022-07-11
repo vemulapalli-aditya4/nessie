@@ -33,6 +33,7 @@ dependencies {
   implementation(projects.versioned.persist.serializeProto)
   implementation(projects.versioned.spi)
   implementation(projects.versioned.persist.persistStore)
+  implementation(projects.versioned.persist.mongodb)
   implementation(projects.model)
   implementation("com.google.code.gson:gson:2.8.9")
   implementation("org.apache.commons:commons-lang3:3.12.0")
