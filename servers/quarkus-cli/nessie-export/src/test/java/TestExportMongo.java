@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.protobuf.ByteString;
+
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.projectnessie.model.CommitMeta;
 import org.projectnessie.model.Content;
@@ -29,30 +28,19 @@ import org.projectnessie.versioned.persist.mongodb.ImmutableMongoClientConfig;
 import org.projectnessie.versioned.persist.mongodb.MongoClientConfig;
 import org.projectnessie.versioned.persist.mongodb.MongoDatabaseAdapterFactory;
 import org.projectnessie.versioned.persist.mongodb.MongoDatabaseClient;
+import org.projectnessie.versioned.persist.nontx.AdjustableNonTransactionalDatabaseAdapterConfig;
 import org.projectnessie.versioned.persist.nontx.ImmutableAdjustableNonTransactionalDatabaseAdapterConfig;
 
-import java.io.*;
-import java.math.BigInteger;
-import java.nio.ByteBuffer;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+
 import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.protoToRefLog;
-import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.protoToRepoDescription;
-
 public class TestExportMongo {
 
-  DatabaseAdapter mongoDatabaseAdapter;
+  static DatabaseAdapter mongoDatabaseAdapter;
 
-  ExportNessieRepo exportNessieRepo;
+  static ExportNessieRepo exportNessieRepo;
 
-  public TestExportMongo()
-  {
+  @BeforeClass
+  public static void beforeClass() throws Exception {
     MongoClientConfig mongoClientConfig = ImmutableMongoClientConfig.builder()
       .connectionString("mongodb://root:password@localhost:27017").databaseName("nessie").build();
 
@@ -61,11 +49,12 @@ public class TestExportMongo {
     MongoDBClient.initialize();
 
     StoreWorker<Content, CommitMeta, Content.Type> storeWorker = new TableCommitMetaStoreWorker();
-
+    AdjustableNonTransactionalDatabaseAdapterConfig adjustableNonTransactionalDatabaseAdapterConfig;
+    adjustableNonTransactionalDatabaseAdapterConfig = ImmutableAdjustableNonTransactionalDatabaseAdapterConfig.builder().build();
     mongoDatabaseAdapter = new MongoDatabaseAdapterFactory()
       .newBuilder()
       .withConnector(MongoDBClient)
-      .withConfig(ImmutableAdjustableNonTransactionalDatabaseAdapterConfig.builder().build())
+      .withConfig(adjustableNonTransactionalDatabaseAdapterConfig)
       .build(storeWorker);
 
     exportNessieRepo = new ExportNessieRepo(mongoDatabaseAdapter);
@@ -80,17 +69,7 @@ public class TestExportMongo {
     /**Testing the serialized repo desc is correct or not */
     /**The repo desc file must be empty */
 
-    /** Deserialization Logic*/
-    Path path = Paths.get(targetDirectory + "/repoDesc" );
-    RepoDescription repoDesc;
-    try {
-      byte[] data = Files.readAllBytes(path);
-      int len = data.length;
-      Assertions.assertThat(len).isEqualTo(0);
-      repoDesc = protoToRepoDescription(data);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+    Assertions.assertThat(ExportTestsHelper.fetchBytesInRepoDesc(targetDirectory)).isEqualTo(0);
   }
 
   @Test
@@ -99,98 +78,63 @@ public class TestExportMongo {
 
     exportNessieRepo.exportNamedRefs(targetDirectory);
 
-    List<ReferenceInfoExport> namedRefsInfoList;
-    namedRefsInfoList = new ArrayList<ReferenceInfoExport>();
-    Stream<ReferenceInfo<ByteString>> namedReferences = null;
-    GetNamedRefsParams params = GetNamedRefsParams.DEFAULT;
+    List<ReferenceInfoExport> originalNamedRefsInfoList = ExportTestsHelper.fetchNamedRefsInfoList(mongoDatabaseAdapter);
+    List<ReferenceInfoExport> deserializedNamedRefsInfoList = ExportTestsHelper.deserializeNamedRefsInfoList(targetDirectory);
 
-    try {
-      namedReferences = mongoDatabaseAdapter.namedRefs(params);
-    } catch (ReferenceNotFoundException e) {
-      throw new RuntimeException(e);
+    Assertions.assertThat(originalNamedRefsInfoList.size()).isEqualTo(deserializedNamedRefsInfoList.size());
+
+    for(int i = 0 ; i < originalNamedRefsInfoList.size(); i++)
+    {
+      Assertions.assertThat(originalNamedRefsInfoList.get(i).referenceName).isEqualTo(deserializedNamedRefsInfoList.get(i).referenceName);
+
+      Assertions.assertThat(originalNamedRefsInfoList.get(i).type).isEqualTo(deserializedNamedRefsInfoList.get(i).type);
+
+      Assertions.assertThat(originalNamedRefsInfoList.get(i).hash).isEqualTo(deserializedNamedRefsInfoList.get(i).hash);
+
     }
-
-    namedReferences.map(x -> {
-      String referenceName = x.getNamedRef().getName();
-
-      String type = " "; /** must get this */
-      if (x.getNamedRef() instanceof ImmutableBranchName) {
-        type = "branch";
-      } else if (x.getNamedRef() instanceof ImmutableTagName) {
-        type = "tag";
-      }
-
-      String hash = x.getHash().asString();
-
-      return new ReferenceInfoExport(referenceName, type, hash);
-    }).forEach(namedRefsInfoList::add);
-
-
-    /** Deserialization Logic*/
-    FileInputStream fileIn = null;
-    ObjectInputStream in = null;
-    List<ReferenceInfoExport> deserializedNamedRefsInfoList = new ArrayList<ReferenceInfoExport>();
-    try{
-      fileIn = new FileInputStream(targetDirectory + "/namedRefs");
-      in = new ObjectInputStream(fileIn);
-
-      deserializedNamedRefsInfoList = (ArrayList) in.readObject();
-      in.close();
-      fileIn.close();
-    } catch (IOException | ClassNotFoundException e) {
-      throw new RuntimeException(e);
-    }
-
-    Assert.assertEquals(deserializedNamedRefsInfoList, namedRefsInfoList);
   }
 
   @Test
   public void testRefLogTable()
   {
-
     String targetDirectory = "/Users/aditya.vemulapalli/Downloads";
 
     exportNessieRepo.exportRefLogTable(targetDirectory);
 
-    /** Deserialization Logic*/
-    List<RefLog> deserializedRefLogTable = new ArrayList<RefLog>();
-    Path path = Paths.get(targetDirectory + "/refLogTable");
-    try {
-      byte[] data = Files.readAllBytes(path);
-      int noOfBytes = data.length;
-      // ByteBuffer byteBuffer = ByteBuffer.wrap(data);
-      int from = 0 ;
-      int size;
-      byte[] sizeArr;
-      byte[] obj;
-      while(noOfBytes != 0)
-      {
-        sizeArr = Arrays.copyOfRange(data, from, from + 4);
-        size = new BigInteger(sizeArr).intValue();
-        from += 4;
-        noOfBytes -= 4;
-        obj = Arrays.copyOfRange(data, from , from + size );
-        from += size;
-        noOfBytes -= size;
-        deserializedRefLogTable.add(protoToRefLog(obj));
-      }
+    List<RefLog> deserializedRefLog = ExportTestsHelper.deserializeRefLog(targetDirectory);
 
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+    List<RefLog> originalReflog = ExportTestsHelper.fetchRefLogList(mongoDatabaseAdapter);
+
+    Assertions.assertThat(originalReflog.size()).isEqualTo(deserializedRefLog.size());
+
+    List<Hash> originalParents;
+
+    List<Hash> deserializedParents ;
+
+    List<Hash> originalSourceHashes;
+
+    List<Hash> deserializedSourceHashes;
+
+    int j ;
+
+    for(int i = 0 ; i < originalReflog.size(); i++)
+    {
+      Assertions.assertThat(originalReflog.get(i).getCommitHash()).isEqualTo(deserializedRefLog.get(i).getCommitHash());
+
+      Assertions.assertThat(originalReflog.get(i).getRefLogId()).isEqualTo(deserializedRefLog.get(i).getRefLogId());
+
+      Assertions.assertThat(originalReflog.get(i).getRefName()).isEqualTo(deserializedRefLog.get(i).getRefName());
+
+      Assertions.assertThat(originalReflog.get(i).getRefType()).isEqualTo(deserializedRefLog.get(i).getRefType());
+
+      Assertions.assertThat(originalReflog.get(i).getOperation()).isEqualTo(deserializedRefLog.get(i).getOperation());
+
+      Assertions.assertThat(originalReflog.get(i).getOperationTime()).isEqualTo(deserializedRefLog.get(i).getOperationTime());
+
+      Assert.assertEquals(originalReflog.get(i).getParents(), deserializedRefLog.get(i).getParents());
+
+      Assert.assertEquals(originalReflog.get(i).getSourceHashes(), deserializedRefLog.get(i).getSourceHashes());
     }
-
-    Stream<RefLog> refLogTable = null;
-    try {
-      refLogTable = mongoDatabaseAdapter.refLog(null);
-    } catch (RefLogNotFoundException e) {
-      throw new RuntimeException(e);
-    }
-
-    List<RefLog> refLogList = refLogTable.collect(Collectors.toList());
-
-    refLogTable.close();
-
-    Assert.assertEquals(deserializedRefLogTable, refLogList);
   }
 
   @Test
@@ -200,137 +144,48 @@ public class TestExportMongo {
 
     exportNessieRepo.exportCommitLogTable(targetDirectory);
 
-    /** Deserialization Logic*/
+    List<CommitLogClass1> deserializedCommitLogClass1List = ExportTestsHelper.deserializeCommitLogClass1List(targetDirectory);
 
-    //For file 1
-    FileInputStream fileIn = null;
-    ObjectInputStream in = null;
-    List<CommitLogClass1> readCommitLogList1 = new ArrayList<CommitLogClass1>();
-    try{
-      fileIn = new FileInputStream(targetDirectory + "/commitLogFile1");
-      in = new ObjectInputStream(fileIn);
+    List<CommitLogClass2> deserializedCommitLogClass2List = ExportTestsHelper.deserializeCommitLogClass2List(targetDirectory);
 
-      readCommitLogList1 = (ArrayList) in.readObject();
-      in.close();
-      fileIn.close();
-    } catch (IOException | ClassNotFoundException e) {
-      throw new RuntimeException(e);
+    CommitLogClassWrapper originalCommitLogList = ExportTestsHelper.fetchCommitLogTable(mongoDatabaseAdapter);
+
+    List<CommitLogClass1> commitLogClass1List = originalCommitLogList.commitLogClass1List;
+    List<CommitLogClass2> commitLogClass2List = originalCommitLogList.commitLogClass2List;
+
+    Assertions.assertThat(commitLogClass1List.size()).isEqualTo(deserializedCommitLogClass1List.size());
+
+    for(int i = 0 ; i < commitLogClass1List.size(); i++)
+    {
+      Assertions.assertThat(commitLogClass1List.get(i).commitSeq).isEqualTo(deserializedCommitLogClass1List.get(i).commitSeq);
+
+      Assertions.assertThat(commitLogClass1List.get(i).hash).isEqualTo(deserializedCommitLogClass1List.get(i).hash);
+
+      Assertions.assertThat(commitLogClass1List.get(i).createdTime).isEqualTo(deserializedCommitLogClass1List.get(i).createdTime);
+
+      Assertions.assertThat(commitLogClass1List.get(i).parent_1st).isEqualTo(deserializedCommitLogClass1List.get(i).parent_1st);
+
+      Assert.assertEquals(commitLogClass1List.get(i).additionalParents, deserializedCommitLogClass1List.get(i).additionalParents);
+
+      Assert.assertEquals(commitLogClass1List.get(i).contentIds, deserializedCommitLogClass1List.get(i).contentIds);
+
+      Assert.assertEquals(commitLogClass1List.get(i).deletes, deserializedCommitLogClass1List.get(i).deletes);
+
+      Assert.assertEquals(commitLogClass1List.get(i).noOfStringsInKeys, deserializedCommitLogClass1List.get(i).noOfStringsInKeys);
+
+      Assert.assertEquals(commitLogClass1List.get(i).putsKeyStrings, deserializedCommitLogClass1List.get(i).putsKeyStrings);
+
+      Assert.assertEquals(commitLogClass1List.get(i).putsKeyNoOfStrings, deserializedCommitLogClass1List.get(i).putsKeyNoOfStrings);
     }
 
-    //For file2
-    Path pathFile2 = Paths.get(targetDirectory + "/commitLogFile2");
-    List<CommitLogClass2> readCommitLogList2 = new ArrayList<CommitLogClass2>();
-    try {
-      byte[] data = Files.readAllBytes(pathFile2);
-      int noOfBytes = data.length;
-      int from = 0 ;
-      int size;
-      byte[] sizeArr;
-      byte[] obj;
-      int i = 0;
-      while(noOfBytes != 0)
-      {
-        sizeArr = Arrays.copyOfRange(data, from, from + 4);
-        size = new BigInteger(sizeArr).intValue();
-        from += 4;
-        noOfBytes -= 4;
-        obj = Arrays.copyOfRange(data, from , from + size );
-        from += size;
-        noOfBytes -= size;
-        ObjectMapper objectMapper = new ObjectMapper();
-        CommitLogClass2 commitLogClass2 = objectMapper.readValue(obj, CommitLogClass2.class);
-        readCommitLogList2.add(commitLogClass2);
-        i++;
-      }
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+    Assertions.assertThat(commitLogClass2List.size()).isEqualTo(deserializedCommitLogClass2List.size());
+
+    for(int i = 0 ; i < commitLogClass2List.size(); i++)
+    {
+      Assert.assertEquals(commitLogClass2List.get(i).commitMeta, deserializedCommitLogClass2List.get(i).commitMeta);
+
+      Assert.assertEquals(commitLogClass2List.get(i).contents, commitLogClass2List.get(i).contents);
     }
-
-    Stream<CommitLogEntry> commitLogTable =  mongoDatabaseAdapter.scanAllCommitLogEntries();
-
-    /**entries bounded cache*/
-    Map<ContentId, ByteString> globalContents = new HashMap<>();
-    Function<KeyWithBytes, ByteString> getGlobalContents =
-      (put) ->
-        globalContents.computeIfAbsent(
-          put.getContentId(),
-          cid ->
-            mongoDatabaseAdapter
-              .globalContent(put.getContentId())
-              .map(ContentIdAndBytes::getValue)
-              .orElse(null));
-
-    StoreWorker<Content, CommitMeta, Content.Type> storeWorker = new TableCommitMetaStoreWorker();
-    Serializer<CommitMeta> metaSerializer = storeWorker.getMetadataSerializer();
-
-    List<CommitLogClass1> commitLogList1 = new ArrayList<CommitLogClass1>();
-    List<CommitLogClass2> commitLogList2 = new ArrayList<CommitLogClass2>();
-
-
-    commitLogTable.map(x -> {
-      long createdTime = x.getCreatedTime();
-      long commitSeq = x.getCommitSeq();
-      String hash = x.getHash().asString();
-
-      String parent_1st = x.getParents().get(0).asString();
-
-      List<String> additionalParents = new ArrayList<String>();
-
-      List<Hash> hashAdditionalParents = x.getAdditionalParents();
-      for (Hash hashAdditionalParent : hashAdditionalParents) {
-        additionalParents.add(hashAdditionalParent.asString());
-      }
-
-      List<String> deletes = new ArrayList<String>();
-      List<Integer> noOfStringsInKeys = new ArrayList<Integer>();
-
-      List<Key> keyDeletes = x.getDeletes();
-      for (Key keyDelete : keyDeletes) {
-
-        List<String> elements = keyDelete.getElements();
-
-        noOfStringsInKeys.add(elements.size());
-
-        deletes.addAll(elements);
-      }
-
-      List<KeyWithBytes> puts = x.getPuts();
-
-      ByteString metaDataByteString = x.getMetadata();
-
-      CommitMeta metaData = metaSerializer.fromBytes(metaDataByteString);
-
-      List<String> contentIds = new ArrayList<>();
-      List<Content> contents = new ArrayList<>();
-      List<String> putsKeyStrings = new ArrayList<>();
-      List<Integer> putsKeyNoOfStrings = new ArrayList<>();
-
-      for (KeyWithBytes put : puts) {
-        ContentId contentId = put.getContentId();
-        contentIds.add(contentId.getId());
-
-        ByteString value = put.getValue();
-
-        Content content = storeWorker.valueFromStore(value, () -> getGlobalContents.apply(put));
-
-        contents.add(content);
-
-        Key key = put.getKey();
-        List<String> elements1 = key.getElements();
-        putsKeyNoOfStrings.add(elements1.size());
-        putsKeyStrings.addAll(elements1);
-      }
-
-      commitLogList2.add(new CommitLogClass2(contents, metaData));
-
-      return new CommitLogClass1(createdTime, commitSeq, hash, parent_1st, additionalParents, deletes, noOfStringsInKeys,
-        contentIds, putsKeyStrings, putsKeyNoOfStrings);
-    }).forEachOrdered(commitLogList1::add);
-
-    commitLogTable.close();
-
-    Assert.assertEquals(readCommitLogList1, commitLogList1);
-    Assert.assertEquals(readCommitLogList2, commitLogList2);
 
   }
 }

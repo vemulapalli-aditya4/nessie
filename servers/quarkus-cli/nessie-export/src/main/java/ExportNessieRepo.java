@@ -71,7 +71,7 @@ public class ExportNessieRepo {
         try {
           fosDescTable.close();
         } catch (IOException e) {
-          e.printStackTrace();
+          throw new RuntimeException(e);
         }
       }
     }

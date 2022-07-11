@@ -34,12 +34,20 @@ dependencies {
   implementation(projects.versioned.spi)
   implementation(projects.versioned.persist.persistStore)
   implementation(projects.versioned.persist.mongodb)
+  implementation(projects.versioned.persist.nontx)
   implementation(projects.model)
   implementation("com.google.code.gson:gson:2.8.9")
   implementation("org.apache.commons:commons-lang3:3.12.0")
   implementation("com.fasterxml.jackson.core:jackson-core:2.13.3")
   implementation("com.fasterxml.jackson.core:jackson-databind:2.13.3")
+
+  testImplementation(platform(rootProject))
+  testImplementation(projects.servers.quarkusCommon)
   testImplementation("junit:junit:4.13.2")
   testImplementation("org.assertj:assertj-core:3.21.0")
 }
 
+java {
+  sourceCompatibility = JavaVersion.VERSION_11
+  targetCompatibility = JavaVersion.VERSION_11
+}
