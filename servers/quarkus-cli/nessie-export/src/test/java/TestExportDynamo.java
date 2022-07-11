@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -22,42 +21,69 @@ import org.junit.Test;
 import org.projectnessie.model.CommitMeta;
 import org.projectnessie.model.Content;
 import org.projectnessie.server.store.TableCommitMetaStoreWorker;
-import org.projectnessie.versioned.*;
-import org.projectnessie.versioned.persist.adapter.*;
+import org.projectnessie.versioned.StoreWorker;
+import org.projectnessie.versioned.persist.adapter.DatabaseAdapter;
+import org.projectnessie.versioned.persist.adapter.RefLog;
+import org.projectnessie.versioned.persist.dynamodb.DynamoClientConfig;
+import org.projectnessie.versioned.persist.dynamodb.DynamoDatabaseAdapterFactory;
+import org.projectnessie.versioned.persist.dynamodb.DynamoDatabaseClient;
+import org.projectnessie.versioned.persist.dynamodb.ImmutableDefaultDynamoClientConfig;
 import org.projectnessie.versioned.persist.mongodb.ImmutableMongoClientConfig;
 import org.projectnessie.versioned.persist.mongodb.MongoClientConfig;
 import org.projectnessie.versioned.persist.mongodb.MongoDatabaseAdapterFactory;
 import org.projectnessie.versioned.persist.mongodb.MongoDatabaseClient;
 import org.projectnessie.versioned.persist.nontx.AdjustableNonTransactionalDatabaseAdapterConfig;
 import org.projectnessie.versioned.persist.nontx.ImmutableAdjustableNonTransactionalDatabaseAdapterConfig;
+import org.projectnessie.versioned.persist.nontx.NonTransactionalDatabaseAdapterConfig;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
+import java.util.List;
 
-import java.util.*;
-public class TestExportMongo {
+public class TestExportDynamo {
 
-  static DatabaseAdapter mongoDatabaseAdapter;
+  static DatabaseAdapter dynamoDatabaseAdapter;
 
   static ExportNessieRepo exportNessieRepo;
 
   @BeforeClass
   public static void beforeClass() throws Exception {
-    MongoClientConfig mongoClientConfig = ImmutableMongoClientConfig.builder()
-      .connectionString("mongodb://root:password@localhost:27017").databaseName("nessie").build();
 
-    MongoDatabaseClient MongoDBClient = new MongoDatabaseClient();
-    MongoDBClient.configure(mongoClientConfig);
-    MongoDBClient.initialize();
+    //Initialize Dynamo Database Adapter
+
+    String endpointURI = "http://localhost:8000";
+
+    String region = "us-west-2";
+
+    AwsCredentialsProvider credentialsProvider ;
+    DynamoDbClient dynamoDbClient ;
+
+    DynamoClientConfig dynamoClientConfig = ImmutableDefaultDynamoClientConfig
+      .builder()
+      .endpointURI(endpointURI)
+      .region(region)
+      .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("fakeKeyId", "fakeSecretAccessKey" )))
+      .build();
 
     StoreWorker<Content, CommitMeta, Content.Type> storeWorker = new TableCommitMetaStoreWorker();
-    AdjustableNonTransactionalDatabaseAdapterConfig adjustableNonTransactionalDatabaseAdapterConfig;
-    adjustableNonTransactionalDatabaseAdapterConfig = ImmutableAdjustableNonTransactionalDatabaseAdapterConfig.builder().build();
-    mongoDatabaseAdapter = new MongoDatabaseAdapterFactory()
-      .newBuilder()
-      .withConnector(MongoDBClient)
-      .withConfig(adjustableNonTransactionalDatabaseAdapterConfig)
-      .build(storeWorker);
 
-    exportNessieRepo = new ExportNessieRepo(mongoDatabaseAdapter);
+    NonTransactionalDatabaseAdapterConfig dynamoDbAdapterConfig = ImmutableAdjustableNonTransactionalDatabaseAdapterConfig.builder().build();
+
+    try (DynamoDatabaseClient dynamoDatabaseClient = new DynamoDatabaseClient()) {
+
+      dynamoDatabaseClient.configure(dynamoClientConfig);
+      dynamoDatabaseClient.initialize();
+
+      dynamoDatabaseAdapter = new DynamoDatabaseAdapterFactory()
+        .newBuilder()
+        .withConnector(dynamoDatabaseClient)
+        .withConfig( dynamoDbAdapterConfig )
+        .build(storeWorker);
+
+    }
+    exportNessieRepo = new ExportNessieRepo(dynamoDatabaseAdapter);
   }
 
   @Test
@@ -78,7 +104,7 @@ public class TestExportMongo {
 
     exportNessieRepo.exportNamedRefs(targetDirectory);
 
-    List<ReferenceInfoExport> originalNamedRefsInfoList = ExportTestsHelper.fetchNamedRefsInfoList(mongoDatabaseAdapter);
+    List<ReferenceInfoExport> originalNamedRefsInfoList = ExportTestsHelper.fetchNamedRefsInfoList(dynamoDatabaseAdapter);
     List<ReferenceInfoExport> deserializedNamedRefsInfoList = ExportTestsHelper.deserializeNamedRefsInfoList(targetDirectory);
 
     Assertions.assertThat(originalNamedRefsInfoList.size()).isEqualTo(deserializedNamedRefsInfoList.size());
@@ -103,7 +129,7 @@ public class TestExportMongo {
 
     List<RefLog> deserializedRefLog = ExportTestsHelper.deserializeRefLog(targetDirectory);
 
-    List<RefLog> originalReflog = ExportTestsHelper.fetchRefLogList(mongoDatabaseAdapter);
+    List<RefLog> originalReflog = ExportTestsHelper.fetchRefLogList(dynamoDatabaseAdapter);
 
     Assertions.assertThat(originalReflog.size()).isEqualTo(deserializedRefLog.size());
 
@@ -140,7 +166,7 @@ public class TestExportMongo {
 
     List<CommitLogClass2> deserializedCommitLogClass2List = ExportTestsHelper.deserializeCommitLogClass2List(targetDirectory);
 
-    CommitLogClassWrapper originalCommitLogList = ExportTestsHelper.fetchCommitLogTable(mongoDatabaseAdapter);
+    CommitLogClassWrapper originalCommitLogList = ExportTestsHelper.fetchCommitLogTable(dynamoDatabaseAdapter);
 
     List<CommitLogClass1> commitLogClass1List = originalCommitLogList.commitLogClass1List;
     List<CommitLogClass2> commitLogClass2List = originalCommitLogList.commitLogClass2List;
@@ -180,4 +206,5 @@ public class TestExportMongo {
     }
 
   }
+
 }
