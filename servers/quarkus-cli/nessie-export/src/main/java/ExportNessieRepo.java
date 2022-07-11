@@ -13,32 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import com.google.gson.Gson;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
-import org.apache.commons.lang3.SerializationUtils;
 import org.projectnessie.model.CommitMeta;
 import org.projectnessie.model.Content;
 import org.projectnessie.server.store.TableCommitMetaStoreWorker;
 import org.projectnessie.versioned.*;
 import org.projectnessie.versioned.persist.adapter.*;
 import org.projectnessie.versioned.persist.serialize.AdapterTypes;
-import org.projectnessie.versioned.persist.store.PersistVersionStore;
 
 import java.io.*;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.protoToRepoDescription;
-import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.toProto;
+import static org.projectnessie.versioned.persist.adapter.serialize.ProtoSerialization.*;
 
-public class ExportNessieRepoNew2 {
+public class ExportNessieRepo {
 
   DatabaseAdapter databaseAdapter;
 
@@ -48,10 +45,11 @@ public class ExportNessieRepoNew2 {
   /**String targetDirectory*/
   public void exportRepoDesc()
   {
-
     /** Right now there is no use for Repository Description table
      * The exported file will just be an empty file */
+
     RepoDescription repoDescTable = databaseAdapter.fetchRepositoryDescription();
+
     AdapterTypes.RepoProps repoProps = toProto(repoDescTable);
 
     /**String repoDescFilePath = targetDirectory + "/repoDesc"*/
@@ -59,6 +57,7 @@ public class ExportNessieRepoNew2 {
 
     byte[] arr = repoProps.toByteArray();
     FileOutputStream fosDescTable = null;
+
     try{
       fosDescTable = new FileOutputStream(repoDescFilePath);
       fosDescTable.write(arr);
@@ -74,24 +73,30 @@ public class ExportNessieRepoNew2 {
         }
       }
     }
+
     /** Deserialization Logic*/
 
-    /**Path path = Paths.get(targetDirectory + "/repoDesc");
-     * Path path = Paths.get("/Users/aditya.vemulapalli/Downloads/repoDesc");
+    /**Path path = Paths.get(targetDirectory + "/repoDesc" )*/
+    Path path = Paths.get("/Users/aditya.vemulapalli/Downloads/repoDesc");
     try {
       byte[] data = Files.readAllBytes(path);
       RepoDescription repoDesc = protoToRepoDescription(data);
+      System.out.println("Repo version is " + repoDesc.getRepoVersion());
     } catch (IOException e) {
       throw new RuntimeException(e);
-    }*/
+    }
 
   }
 
+  /** Actually should take export directory location string as parameter */
+  /**String targetDirectory*/
   public void exportNamedRefs()
   {
     GetNamedRefsParams params = GetNamedRefsParams.DEFAULT;
 
-    String namedRefsFilePath = "/Users/aditya.vemulapalli/Downloads/namedRefs.json";
+    /**String namedRefsFilePath = targetDirectory + "/namedRefs"*/
+
+    String namedRefsFilePath = "/Users/aditya.vemulapalli/Downloads/namedRefs";
 
     List<ReferenceInfoExport> namedRefsInfoList;
     namedRefsInfoList = new ArrayList<ReferenceInfoExport>();
@@ -134,28 +139,116 @@ public class ExportNessieRepoNew2 {
       throw new RuntimeException(e);
     }
 
-    /** Deserialization Logic */
-
-    /**FileInputStream fileIn = null;
+    /** Deserialization Logic*/
+    FileInputStream fileIn = null;
     ObjectInputStream in = null;
     List<ReferenceInfoExport> readNamedRefsInfoList = new ArrayList<ReferenceInfoExport>();
     try{
-        fileIn = new FileInputStream(namedRefsFilePath);
-        in = new ObjectInputStream(fileIn);
+      fileIn = new FileInputStream(namedRefsFilePath);
+      in = new ObjectInputStream(fileIn);
 
-        readNamedRefsInfoList = (ArrayList) in.readObject();
-        in.close();
-        fileIn.close();
+      readNamedRefsInfoList = (ArrayList) in.readObject();
+      in.close();
+      fileIn.close();
 
+      for (ReferenceInfoExport referenceInfoExport : readNamedRefsInfoList) {
+        System.out.println("" + referenceInfoExport.referenceName);
+        System.out.println("" + referenceInfoExport.type);
+        System.out.println("" + referenceInfoExport.hash);
+      }
     } catch (IOException | ClassNotFoundException e) {
       throw new RuntimeException(e);
-    }*/
+    }
+
   }
 
   /** Actually should take export directory location string as parameter */
+  /**String targetDirectory*/
+  public void exportRefLogTable()
+  {
+
+    Stream<RefLog> refLogTable = null;
+    try {
+      refLogTable = databaseAdapter.refLog(null);
+    } catch (RefLogNotFoundException e) {
+      throw new RuntimeException(e);
+    }
+
+    /**String namedRefsFilePath = targetDirectory + "/refLogTable"*/
+    String refLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/refLogTable";
+
+    FileOutputStream fosRefLog = null;
+    try{
+
+      fosRefLog = new FileOutputStream(refLogTableFilePath);
+      FileOutputStream finalFosRefLog = fosRefLog;
+      refLogTable.map(x-> {
+        AdapterTypes.RefLogEntry refLogEntry = toProtoFromRefLog(x);
+        return refLogEntry.toByteArray();
+      }).forEachOrdered(y ->{
+
+        int len = y.length;
+        ByteBuffer bb = ByteBuffer.allocate(4);
+        bb.putInt(len);
+        byte[] bytes = bb.array();
+
+        try {
+          finalFosRefLog.write(bytes);
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+        try {
+          finalFosRefLog.write(y);
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+      });
+
+      fosRefLog.close();
+
+      finalFosRefLog.close();
+      refLogTable.close();
+
+      System.out.println("Ref Log Table is written");
+
+    } catch(IOException e ) {
+      throw new RuntimeException(e);
+    }
+
+    /** Deserialization Logic*/
+    Path path = Paths.get("/Users/aditya.vemulapalli/Downloads/refLogTable");
+    try {
+      byte[] data = Files.readAllBytes(path);
+      int noOfBytes = data.length;
+      List<RefLog> deserializedRefLogTable = new ArrayList<RefLog>();
+      // ByteBuffer byteBuffer = ByteBuffer.wrap(data);
+      int from = 0 ;
+      int size;
+      byte[] sizeArr;
+      byte[] obj;
+      while(noOfBytes != 0)
+      {
+        sizeArr = Arrays.copyOfRange(data, from, from + 4);
+        size = new BigInteger(sizeArr).intValue();
+        from += 4;
+        noOfBytes -= 4;
+        obj = Arrays.copyOfRange(data, from , from + size );
+        from += size;
+        noOfBytes -= size;
+        deserializedRefLogTable.add(protoToRefLog(obj));
+      }
+
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+
+  }
+
   public void exportCommitLogTable()
   {
-    String commitLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/commitLogFile";
+
+    String commitLogTableFilePath1 = "/Users/aditya.vemulapalli/Downloads/commitLogFile1";
+    String commitLogTableFilePath2 = "/Users/aditya.vemulapalli/Downloads/commitLogFile2";
 
     Stream<CommitLogEntry> commitLogTable =  databaseAdapter.scanAllCommitLogEntries();
 
@@ -173,21 +266,22 @@ public class ExportNessieRepoNew2 {
 
     Serializer<CommitMeta> metaSerializer = storeWorker.getMetadataSerializer();
 
-    List<CommitLogClass1> commitLogList = new ArrayList<CommitLogClass1>();
+    List<CommitLogClass1> commitLogList1 = new ArrayList<CommitLogClass1>();
+    List<CommitLogClass2> commitLogList2 = new ArrayList<CommitLogClass2>();
 
-    FileOutputStream fileOut = null;
-    ObjectOutputStream out = null;
-
-    try {
-      fileOut = new FileOutputStream(commitLogTableFilePath);
-      out = new ObjectOutputStream(fileOut);
+    FileOutputStream fileOut1 = null;
+    ObjectOutputStream out1 = null;
+    FileOutputStream fileOut2 = null;
+    try{
+      fileOut1 = new FileOutputStream(commitLogTableFilePath1);
+      out1 = new ObjectOutputStream(fileOut1);
+      fileOut2 = new FileOutputStream(commitLogTableFilePath2);
 
       commitLogTable.map(x -> {
         long createdTime = x.getCreatedTime();
         long commitSeq = x.getCommitSeq();
         String hash = x.getHash().asString();
 
-        //ask 1st parent is first or last
         String parent_1st = x.getParents().get(0).asString();
 
         List<String> additionalParents = new ArrayList<String>();
@@ -216,15 +310,6 @@ public class ExportNessieRepoNew2 {
 
         CommitMeta metaData = metaSerializer.fromBytes(metaDataByteString);
 
-        // System.out.println("hash is " + metaData.getHash());
-        // System.out.println("signed off by " + metaData.getSignedOffBy());
-        CommitMetaInfo commitMetaInfo = new CommitMetaInfo(metaData.getAuthor(), metaData.getCommitTime(), metaData.getAuthorTime(),
-          metaData.getHash(), metaData.getCommitter(), metaData.getMessage(), metaData.getProperties(), metaData.getSignedOffBy());
-
-
-        // List<ContentId> contentIds = new ArrayList<ContentId>();
-        // List<Key> putsKeys = new ArrayList<>();
-
         List <String> contentIds = new ArrayList<>();
         List<Content> contents = new ArrayList<>();
         List<String> putsKeyStrings = new ArrayList<>();
@@ -237,96 +322,95 @@ public class ExportNessieRepoNew2 {
           ByteString value = put.getValue();
 
           Content content = storeWorker.valueFromStore(value, () -> getGlobalContents.apply(put));
+
           contents.add(content);
 
           Key key = put.getKey();
-          // putsKeys.add(key);
           List<String> elements1 = key.getElements();
           putsKeyNoOfStrings.add(elements1.size());
           putsKeyStrings.addAll(elements1);
         }
 
+        commitLogList2.add(new CommitLogClass2(contents, metaData));
+
         return new CommitLogClass1(createdTime, commitSeq, hash, parent_1st, additionalParents, deletes, noOfStringsInKeys,
-          commitMetaInfo, contentIds, putsKeyStrings, putsKeyNoOfStrings);
-      }).forEach(commitLogList::add);
+          contentIds, putsKeyStrings, putsKeyNoOfStrings);
+      }).forEachOrdered(commitLogList1::add);
 
-      out.writeObject(commitLogList);
-      out.close();
-      fileOut.close();
+      for (CommitLogClass2 commitLogClass2 : commitLogList2) {
 
-      /** Deserialization Logic */
-      /**FileInputStream fileIn = null;
-       * ObjectInputStream in = null;
-       * List<CommitLogClass1> commitLogClass1List = new ArrayList<CommitLogClass1>();
-       * try{
-       *    fileIn = new FileInputStream(commitLogTableFilePath);
-       *    in = new ObjectInputStream(fileIn);
-       *    commitLogClass1List = (ArrayList) in.readObject();
-       *    in.close();
-       *    fileIn.close();
-       * } catch (IOException | ClassNotFoundException e) {
-       *    throw new RuntimeException(e);
-       * }*/
+        byte[] arr ;
+        ObjectMapper objectMapper = new ObjectMapper();
 
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+        try{
+          arr = objectMapper.writeValueAsBytes(commitLogClass2);
+        } catch (JsonProcessingException e) {
+          throw new RuntimeException(e);
+        }
 
-  }
-
-  public void exportRefLogTable()
-  {
-    Stream<RefLog> refLogTable = null;
-    try {
-      refLogTable = databaseAdapter.refLog(null);
-    } catch (RefLogNotFoundException e) {
-      throw new RuntimeException(e);
-    }
-
-    String refLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/refLogTable";
-
-    FileOutputStream fosRefLog = null;
-    try{
-
-      fosRefLog = new FileOutputStream(refLogTableFilePath);
-      FileOutputStream finalFosRefLog = fosRefLog;
-      refLogTable.map(x-> {
-        AdapterTypes.RefLogEntry refLogEntry = toProtoFromRefLog(x);
-        return refLogEntry.toByteArray();
-      }).forEach(y ->{
-        int len = y.length;
         ByteBuffer bb = ByteBuffer.allocate(4);
-        bb.putInt(len);
+        bb.putInt(arr.length);
         byte[] bytes = bb.array();
-        try {
-          finalFosRefLog.write(bytes);
+        try{
+          fileOut2.write(bytes);
+          fileOut2.write(arr);
         } catch (IOException e) {
           throw new RuntimeException(e);
         }
-        try {
-          finalFosRefLog.write(y);
-        } catch (IOException e) {
-          throw new RuntimeException(e);
-        }
-      });
-
-      fosRefLog.close();
-      finalFosRefLog.close();
-      refLogTable.close();
-
-    } catch(IOException e ) {
+      }
+      out1.writeObject(commitLogList1);
+      out1.close();
+      fileOut1.close();
+      fileOut2.close();
+      commitLogTable.close();
+    } catch (IOException e) {
       throw new RuntimeException(e);
     }
 
     /** Deserialization Logic*/
 
-    /**Path path = Paths.get("/Users/aditya.vemulapalli/Downloads/refLogTableProto");
+    //For file 1
+    FileInputStream fileIn = null;
+    ObjectInputStream in = null;
+    List<CommitLogClass1> readCommitLogList1 = new ArrayList<CommitLogClass1>();
+    try{
+      fileIn = new FileInputStream(commitLogTableFilePath1);
+      in = new ObjectInputStream(fileIn);
+
+      readCommitLogList1 = (ArrayList) in.readObject();
+      in.close();
+      fileIn.close();
+    } catch (IOException | ClassNotFoundException e) {
+      throw new RuntimeException(e);
+    }
+
+    //For file2
+    Path pathFile2 = Paths.get("/Users/aditya.vemulapalli/Downloads/commitLogFile2" );
     try {
-      byte[] data = Files.readAllBytes(path);
-      //use this byte array to reconstruct the ref Log Table
+      byte[] data = Files.readAllBytes(pathFile2);
+      int noOfBytes = data.length;
+      List<CommitLogClass2> deserializedRefLogTable = new ArrayList<CommitLogClass2>();
+      int from = 0 ;
+      int size;
+      byte[] sizeArr;
+      byte[] obj;
+      int i = 0;
+      while(noOfBytes != 0)
+      {
+        sizeArr = Arrays.copyOfRange(data, from, from + 4);
+        size = new BigInteger(sizeArr).intValue();
+        from += 4;
+        noOfBytes -= 4;
+        obj = Arrays.copyOfRange(data, from , from + size );
+        from += size;
+        noOfBytes -= size;
+        ObjectMapper objectMapper = new ObjectMapper();
+        CommitLogClass2 commitLogClass2 = objectMapper.readValue(obj, CommitLogClass2.class);
+        i++;
+      }
     } catch (IOException e) {
       throw new RuntimeException(e);
-    }*/
+    }
   }
 
   public AdapterTypes.RefLogEntry toProtoFromRefLog(RefLog refLog)
@@ -376,5 +460,4 @@ public class ExportNessieRepoNew2 {
 
     return proto.build();
   }
-
 }

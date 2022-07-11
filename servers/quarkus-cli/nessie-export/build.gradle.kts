@@ -36,5 +36,7 @@ dependencies {
   implementation(projects.model)
   implementation("com.google.code.gson:gson:2.8.9")
   implementation("org.apache.commons:commons-lang3:3.12.0")
+  implementation("com.fasterxml.jackson.core:jackson-core:2.13.3")
+  implementation("com.fasterxml.jackson.core:jackson-databind:2.13.3")
 }
 

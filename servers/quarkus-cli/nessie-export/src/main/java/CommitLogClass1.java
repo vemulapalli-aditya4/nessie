@@ -14,66 +14,46 @@
  * limitations under the License.
  */
 
-import org.projectnessie.model.CommitMeta;
-import org.projectnessie.model.Content;
-import org.projectnessie.model.ContentKey;
-import org.projectnessie.versioned.Key;
-import org.projectnessie.versioned.persist.adapter.ContentId;
-
 import java.io.Serializable;
 import java.util.List;
 
 public class CommitLogClass1 implements Serializable {
 
-  public long createdTime;
-  public long commitSeq;
+    public long createdTime;
+    public long commitSeq;
 
-  public String hash;
+    public String hash;
 
-  public String parent_1st;
+    public String parent_1st;
 
-  public List<String> additionalParents;
+    public List<String> additionalParents;
 
-  // public List<Key> deletes; where key has a necessary part of List of string, so List<key> = List<List<String>>
-  //We collapse this into a list of String and store number of Strings in each key
-  public List<String> deletes;
+    // public List<Key> deletes; where key has a necessary part of List of string, so List<key> = List<List<String>>
+    //We collapse this into a list of String and store number of Strings in each key
+    public List<String> deletes;
 
-  public List<Integer> noOfStringsInKeys;
+    public List<Integer> noOfStringsInKeys;
 
-  // public List<Content> contents;
+    public List<String> contentIds;
 
-  // List<Content> contents,
-  // public List<ContentId> contentIds;
+    public List<String> putsKeyStrings;
 
-  public List<String> contentIds;
+    public List<Integer> putsKeyNoOfStrings;
 
-  // public List<Key> putsKeys;
-
-  public List<String> putsKeyStrings;
-
-  public List<Integer> putsKeyNoOfStrings;
-  // public CommitMeta metaData;
-  // CommitMeta metaData
-
-  public CommitMetaInfo commitMetaInfo;
-  public CommitLogClass1(long createdTime, long commitSeq, String hash, String parent_1st,
-                         List<String> additionalParents, List<String > deletes, List<Integer> noOfStringsInKeys,
-                         CommitMetaInfo commitMetaInfo  , List<String> contentIds ,
-                         List<String> putsKeyStrings, List<Integer> putsKeyNoOfStrings) {
-    this.commitSeq = commitSeq;
-    this.createdTime = createdTime;
-    this.hash = hash;
-    this.parent_1st = parent_1st;
-    this.additionalParents = additionalParents;
-    this.deletes = deletes;
-    this.noOfStringsInKeys = noOfStringsInKeys;
-    // this.contents = contents;
-    // this.metaData = metaData;
-    this.commitMetaInfo = commitMetaInfo;
-    this.contentIds = contentIds;
-    // this.putsKeys = putsKeys;
-    this.putsKeyStrings = putsKeyStrings;
-    this.putsKeyNoOfStrings = putsKeyNoOfStrings;
-  }
+    public CommitLogClass1(long createdTime, long commitSeq, String hash, String parent_1st,
+                           List<String> additionalParents, List<String > deletes, List<Integer> noOfStringsInKeys,
+                           List<String> contentIds ,
+                           List<String> putsKeyStrings, List<Integer> putsKeyNoOfStrings) {
+        this.commitSeq = commitSeq;
+        this.createdTime = createdTime;
+        this.hash = hash;
+        this.parent_1st = parent_1st;
+        this.additionalParents = additionalParents;
+        this.deletes = deletes;
+        this.noOfStringsInKeys = noOfStringsInKeys;
+        this.contentIds = contentIds;
+        this.putsKeyStrings = putsKeyStrings;
+        this.putsKeyNoOfStrings = putsKeyNoOfStrings;
+    }
 
 }
