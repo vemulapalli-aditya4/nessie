@@ -373,7 +373,7 @@ public class ExportNessieRepo {
 //    try {
 //      byte[] data = Files.readAllBytes(pathFile2);
 //      int noOfBytes = data.length;
-//      List<CommitLogClass2> deserializedRefLogTable = new ArrayList<CommitLogClass2>();
+//      List<CommitLogClass2> readCommitLogList2 = new ArrayList<CommitLogClass2>();
 //      int from = 0 ;
 //      int size;
 //      byte[] sizeArr;
@@ -390,7 +390,7 @@ public class ExportNessieRepo {
 //        noOfBytes -= size;
 //        ObjectMapper objectMapper = new ObjectMapper();
 //        CommitLogClass2 commitLogClass2 = objectMapper.readValue(obj, CommitLogClass2.class);
-//        deserializedRefLogTable.add(commitLogClass2);
+//        readCommitLogList2.add(commitLogClass2);
 //        i++;
 //      }
 //    } catch (IOException e) {

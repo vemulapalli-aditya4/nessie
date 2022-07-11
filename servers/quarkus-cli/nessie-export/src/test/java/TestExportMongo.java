@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import org.assertj.core.api.Assertions;
@@ -23,9 +24,7 @@ import org.projectnessie.model.CommitMeta;
 import org.projectnessie.model.Content;
 import org.projectnessie.server.store.TableCommitMetaStoreWorker;
 import org.projectnessie.versioned.*;
-import org.projectnessie.versioned.persist.adapter.DatabaseAdapter;
-import org.projectnessie.versioned.persist.adapter.RefLog;
-import org.projectnessie.versioned.persist.adapter.RepoDescription;
+import org.projectnessie.versioned.persist.adapter.*;
 import org.projectnessie.versioned.persist.mongodb.ImmutableMongoClientConfig;
 import org.projectnessie.versioned.persist.mongodb.MongoClientConfig;
 import org.projectnessie.versioned.persist.mongodb.MongoDatabaseAdapterFactory;
@@ -34,12 +33,12 @@ import org.projectnessie.versioned.persist.nontx.ImmutableAdjustableNonTransacti
 
 import java.io.*;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -189,6 +188,8 @@ public class TestExportMongo {
 
     List<RefLog> refLogList = refLogTable.collect(Collectors.toList());
 
+    refLogTable.close();
+
     Assert.assertEquals(deserializedRefLogTable, refLogList);
   }
 
@@ -218,10 +219,10 @@ public class TestExportMongo {
 
     //For file2
     Path pathFile2 = Paths.get(targetDirectory + "/commitLogFile2");
+    List<CommitLogClass2> readCommitLogList2 = new ArrayList<CommitLogClass2>();
     try {
       byte[] data = Files.readAllBytes(pathFile2);
       int noOfBytes = data.length;
-      List<CommitLogClass2> deserializedRefLogTable = new ArrayList<CommitLogClass2>();
       int from = 0 ;
       int size;
       byte[] sizeArr;
@@ -238,11 +239,98 @@ public class TestExportMongo {
         noOfBytes -= size;
         ObjectMapper objectMapper = new ObjectMapper();
         CommitLogClass2 commitLogClass2 = objectMapper.readValue(obj, CommitLogClass2.class);
-        deserializedRefLogTable.add(commitLogClass2);
+        readCommitLogList2.add(commitLogClass2);
         i++;
       }
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+
+    Stream<CommitLogEntry> commitLogTable =  mongoDatabaseAdapter.scanAllCommitLogEntries();
+
+    /**entries bounded cache*/
+    Map<ContentId, ByteString> globalContents = new HashMap<>();
+    Function<KeyWithBytes, ByteString> getGlobalContents =
+      (put) ->
+        globalContents.computeIfAbsent(
+          put.getContentId(),
+          cid ->
+            mongoDatabaseAdapter
+              .globalContent(put.getContentId())
+              .map(ContentIdAndBytes::getValue)
+              .orElse(null));
+
+    StoreWorker<Content, CommitMeta, Content.Type> storeWorker = new TableCommitMetaStoreWorker();
+    Serializer<CommitMeta> metaSerializer = storeWorker.getMetadataSerializer();
+
+    List<CommitLogClass1> commitLogList1 = new ArrayList<CommitLogClass1>();
+    List<CommitLogClass2> commitLogList2 = new ArrayList<CommitLogClass2>();
+
+
+    commitLogTable.map(x -> {
+      long createdTime = x.getCreatedTime();
+      long commitSeq = x.getCommitSeq();
+      String hash = x.getHash().asString();
+
+      String parent_1st = x.getParents().get(0).asString();
+
+      List<String> additionalParents = new ArrayList<String>();
+
+      List<Hash> hashAdditionalParents = x.getAdditionalParents();
+      for (Hash hashAdditionalParent : hashAdditionalParents) {
+        additionalParents.add(hashAdditionalParent.asString());
+      }
+
+      List<String> deletes = new ArrayList<String>();
+      List<Integer> noOfStringsInKeys = new ArrayList<Integer>();
+
+      List<Key> keyDeletes = x.getDeletes();
+      for (Key keyDelete : keyDeletes) {
+
+        List<String> elements = keyDelete.getElements();
+
+        noOfStringsInKeys.add(elements.size());
+
+        deletes.addAll(elements);
+      }
+
+      List<KeyWithBytes> puts = x.getPuts();
+
+      ByteString metaDataByteString = x.getMetadata();
+
+      CommitMeta metaData = metaSerializer.fromBytes(metaDataByteString);
+
+      List<String> contentIds = new ArrayList<>();
+      List<Content> contents = new ArrayList<>();
+      List<String> putsKeyStrings = new ArrayList<>();
+      List<Integer> putsKeyNoOfStrings = new ArrayList<>();
+
+      for (KeyWithBytes put : puts) {
+        ContentId contentId = put.getContentId();
+        contentIds.add(contentId.getId());
+
+        ByteString value = put.getValue();
+
+        Content content = storeWorker.valueFromStore(value, () -> getGlobalContents.apply(put));
+
+        contents.add(content);
+
+        Key key = put.getKey();
+        List<String> elements1 = key.getElements();
+        putsKeyNoOfStrings.add(elements1.size());
+        putsKeyStrings.addAll(elements1);
+      }
+
+      commitLogList2.add(new CommitLogClass2(contents, metaData));
+
+      return new CommitLogClass1(createdTime, commitSeq, hash, parent_1st, additionalParents, deletes, noOfStringsInKeys,
+        contentIds, putsKeyStrings, putsKeyNoOfStrings);
+    }).forEachOrdered(commitLogList1::add);
+
+    commitLogTable.close();
+
+    Assert.assertEquals(readCommitLogList1, commitLogList1);
+    Assert.assertEquals(readCommitLogList2, commitLogList2);
+
   }
 }
