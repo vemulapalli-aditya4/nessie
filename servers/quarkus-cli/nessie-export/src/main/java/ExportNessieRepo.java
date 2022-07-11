@@ -41,9 +41,8 @@ public class ExportNessieRepo {
 
   StoreWorker<Content, CommitMeta, Content.Type> storeWorker = new TableCommitMetaStoreWorker();
 
-  /** Actually should take export directory location string as parameter */
-  /**String targetDirectory*/
-  public void exportRepoDesc()
+  /**Target Directory shouldn't have '/' at the end( because the path already has '/' when we initialize */
+  public void exportRepoDesc(String targetDirectory )
   {
     /** Right now there is no use for Repository Description table
      * The exported file will just be an empty file */
@@ -52,8 +51,7 @@ public class ExportNessieRepo {
 
     AdapterTypes.RepoProps repoProps = toProto(repoDescTable);
 
-    /**String repoDescFilePath = targetDirectory + "/repoDesc"*/
-    String repoDescFilePath = "/Users/aditya.vemulapalli/Downloads/repoDesc";
+    String repoDescFilePath = targetDirectory + "/repoDesc";
 
     byte[] arr = repoProps.toByteArray();
     FileOutputStream fosDescTable = null;
@@ -75,28 +73,21 @@ public class ExportNessieRepo {
     }
 
     /** Deserialization Logic*/
-
-    /**Path path = Paths.get(targetDirectory + "/repoDesc" )*/
-    Path path = Paths.get("/Users/aditya.vemulapalli/Downloads/repoDesc");
+    Path path = Paths.get(targetDirectory + "/repoDesc" );
     try {
       byte[] data = Files.readAllBytes(path);
       RepoDescription repoDesc = protoToRepoDescription(data);
-      System.out.println("Repo version is " + repoDesc.getRepoVersion());
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
 
   }
 
-  /** Actually should take export directory location string as parameter */
-  /**String targetDirectory*/
-  public void exportNamedRefs()
+  public void exportNamedRefs(String targetDirectory)
   {
     GetNamedRefsParams params = GetNamedRefsParams.DEFAULT;
 
-    /**String namedRefsFilePath = targetDirectory + "/namedRefs"*/
-
-    String namedRefsFilePath = "/Users/aditya.vemulapalli/Downloads/namedRefs";
+    String namedRefsFilePath = targetDirectory + "/namedRefs";
 
     List<ReferenceInfoExport> namedRefsInfoList;
     namedRefsInfoList = new ArrayList<ReferenceInfoExport>();
@@ -150,21 +141,13 @@ public class ExportNessieRepo {
       readNamedRefsInfoList = (ArrayList) in.readObject();
       in.close();
       fileIn.close();
-
-      for (ReferenceInfoExport referenceInfoExport : readNamedRefsInfoList) {
-        System.out.println("" + referenceInfoExport.referenceName);
-        System.out.println("" + referenceInfoExport.type);
-        System.out.println("" + referenceInfoExport.hash);
-      }
     } catch (IOException | ClassNotFoundException e) {
       throw new RuntimeException(e);
     }
 
   }
 
-  /** Actually should take export directory location string as parameter */
-  /**String targetDirectory*/
-  public void exportRefLogTable()
+  public void exportRefLogTable(String targetDirectory)
   {
 
     Stream<RefLog> refLogTable = null;
@@ -174,10 +157,9 @@ public class ExportNessieRepo {
       throw new RuntimeException(e);
     }
 
-    /**String namedRefsFilePath = targetDirectory + "/refLogTable"*/
-    String refLogTableFilePath = "/Users/aditya.vemulapalli/Downloads/refLogTable";
+    String refLogTableFilePath = targetDirectory + "/refLogTable";
 
-    FileOutputStream fosRefLog = null;
+      FileOutputStream fosRefLog = null;
     try{
 
       fosRefLog = new FileOutputStream(refLogTableFilePath);
@@ -209,14 +191,12 @@ public class ExportNessieRepo {
       finalFosRefLog.close();
       refLogTable.close();
 
-      System.out.println("Ref Log Table is written");
-
     } catch(IOException e ) {
       throw new RuntimeException(e);
     }
 
     /** Deserialization Logic*/
-    Path path = Paths.get("/Users/aditya.vemulapalli/Downloads/refLogTable");
+    Path path = Paths.get(targetDirectory + "/refLogTable");
     try {
       byte[] data = Files.readAllBytes(path);
       int noOfBytes = data.length;
@@ -244,11 +224,11 @@ public class ExportNessieRepo {
 
   }
 
-  public void exportCommitLogTable()
+  public void exportCommitLogTable(String targetDirectory )
   {
 
-    String commitLogTableFilePath1 = "/Users/aditya.vemulapalli/Downloads/commitLogFile1";
-    String commitLogTableFilePath2 = "/Users/aditya.vemulapalli/Downloads/commitLogFile2";
+    String commitLogTableFilePath1 = targetDirectory + "/commitLogFile1";
+    String commitLogTableFilePath2 = targetDirectory + "/commitLogFile2";
 
     Stream<CommitLogEntry> commitLogTable =  databaseAdapter.scanAllCommitLogEntries();
 
@@ -385,7 +365,7 @@ public class ExportNessieRepo {
     }
 
     //For file2
-    Path pathFile2 = Paths.get("/Users/aditya.vemulapalli/Downloads/commitLogFile2" );
+    Path pathFile2 = Paths.get(commitLogTableFilePath2);
     try {
       byte[] data = Files.readAllBytes(pathFile2);
       int noOfBytes = data.length;
@@ -406,6 +386,7 @@ public class ExportNessieRepo {
         noOfBytes -= size;
         ObjectMapper objectMapper = new ObjectMapper();
         CommitLogClass2 commitLogClass2 = objectMapper.readValue(obj, CommitLogClass2.class);
+        deserializedRefLogTable.add(commitLogClass2);
         i++;
       }
     } catch (IOException e) {
