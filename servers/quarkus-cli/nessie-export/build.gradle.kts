@@ -37,6 +37,7 @@ dependencies {
   implementation(projects.versioned.persist.dynamodb)
   implementation(projects.versioned.persist.rocks)
   implementation(projects.versioned.persist.nontx)
+  implementation(projects.versioned.persist.tx)
   implementation(projects.model)
   implementation("com.google.code.gson:gson:2.8.9")
   implementation("org.apache.commons:commons-lang3:3.12.0")
