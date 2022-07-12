@@ -38,12 +38,16 @@ import org.projectnessie.versioned.persist.nontx.NonTransactionalDatabaseAdapter
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
+import java.net.URI;
 import java.util.List;
 
 public class TestExportDynamo {
 
+  /** was getting error software.amazon.awssdk.core.exception.SdkClientException: Multiple HTTP implementations were found on the classpath. To avoid non-deterministic loading implementations, please explicitly provide an HTTP client via the client builders, set the software.amazon.awssdk.http.service.impl system property with the FQCN of the HTTP service to use as the default, or remove all but one HTTP implementation from the classpath
+    while running this test class */
   static DatabaseAdapter dynamoDatabaseAdapter;
 
   static ExportNessieRepo exportNessieRepo;
@@ -51,20 +55,24 @@ public class TestExportDynamo {
   @BeforeClass
   public static void beforeClass() throws Exception {
 
-    //Initialize Dynamo Database Adapter
-
     String endpointURI = "http://localhost:8000";
 
     String region = "us-west-2";
 
-    AwsCredentialsProvider credentialsProvider ;
-    DynamoDbClient dynamoDbClient ;
+    DynamoDbClient dynamoDbClient = DynamoDbClient.builder()
+      .endpointOverride(URI.create("http://localhost:8000"))
+      .region(Region.US_WEST_2)
+      .credentialsProvider(StaticCredentialsProvider.create(
+        AwsBasicCredentials.create("fakeKeyId", "fakeSecretAccessKey" )))
+      .build();
 
     DynamoClientConfig dynamoClientConfig = ImmutableDefaultDynamoClientConfig
       .builder()
       .endpointURI(endpointURI)
       .region(region)
-      .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("fakeKeyId", "fakeSecretAccessKey" )))
+      .credentialsProvider(StaticCredentialsProvider.create(
+        AwsBasicCredentials.create("fakeKeyId", "fakeSecretAccessKey" )))
+      .dynamoDbClient(dynamoDbClient)
       .build();
 
     StoreWorker<Content, CommitMeta, Content.Type> storeWorker = new TableCommitMetaStoreWorker();
