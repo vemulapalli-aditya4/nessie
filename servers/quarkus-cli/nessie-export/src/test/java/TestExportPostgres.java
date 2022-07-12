@@ -29,6 +29,7 @@ import org.projectnessie.versioned.persist.tx.*;
 import org.projectnessie.versioned.persist.tx.postgres.PostgresDatabaseAdapterFactory;
 
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -53,6 +54,20 @@ public class TestExportPostgres {
 
     /**should initialize connector properly*/
     TxConnectionProvider<TxConnectionConfig> connector;
+    connector = new TxConnectionProvider<TxConnectionConfig>() {
+      @Override
+      public Connection borrowConnection() throws SQLException {
+        Connection conn;
+        conn = DriverManager.getConnection("jdbc:postgresql://localhost:55002/nessie", "postgres", "postgrespw");
+        conn.setAutoCommit(false);
+        return conn;
+      }
+
+      @Override
+      public void close() throws Exception {
+
+      }
+    };
     connector.configure(txConnectionConfig);
     connector.initialize();
 
