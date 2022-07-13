@@ -20,61 +20,36 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.projectnessie.model.CommitMeta;
 import org.projectnessie.model.Content;
-import org.projectnessie.quarkus.providers.TransactionalConnectionProvider;
 import org.projectnessie.server.store.TableCommitMetaStoreWorker;
 import org.projectnessie.versioned.StoreWorker;
 import org.projectnessie.versioned.persist.adapter.DatabaseAdapter;
 import org.projectnessie.versioned.persist.adapter.RefLog;
-import org.projectnessie.versioned.persist.tx.*;
-import org.projectnessie.versioned.persist.tx.postgres.PostgresDatabaseAdapterFactory;
+import org.projectnessie.versioned.persist.tx.ImmutableAdjustableTxDatabaseAdapterConfig;
+import org.projectnessie.versioned.persist.tx.TxDatabaseAdapterConfig;
+import org.projectnessie.versioned.persist.tx.h2.H2DatabaseAdapterFactory;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 
-public class TestExportPostgres {
+public class TestExportH2 {
 
-  static DatabaseAdapter postgresDatabaseAdapter;
+  static DatabaseAdapter h2DatabaseAdapter;
 
   static ExportNessieRepo exportNessieRepo;
 
   @BeforeClass
   public static void beforeClass() throws Exception {
 
-    //initializing postgres Adapter
-    StoreWorker<Content, CommitMeta, Content.Type> storeWorker = new TableCommitMetaStoreWorker();
+    //Initialize h2 database
 
+    StoreWorker<Content, CommitMeta, Content.Type> storeWorker = new TableCommitMetaStoreWorker();
     TxDatabaseAdapterConfig dbAdapterConfig = ImmutableAdjustableTxDatabaseAdapterConfig.builder().build();
 
-    TxConnectionConfig txConnectionConfig = ImmutableDefaultTxConnectionConfig.builder().build();
-
-    /**should initialize connector properly*/
-    TxConnectionProvider<TxConnectionConfig> connector;
-    connector = new TxConnectionProvider<TxConnectionConfig>() {
-      @Override
-      public Connection borrowConnection() throws SQLException {
-        Connection conn;
-        conn = DriverManager.getConnection("jdbc:postgresql://localhost:55004/nessie", "postgres", "postgrespw");
-        conn.setAutoCommit(false);
-        return conn;
-      }
-
-      @Override
-      public void close() throws Exception {
-
-      }
-    };
-    connector.configure(txConnectionConfig);
-    connector.initialize();
-
-    postgresDatabaseAdapter = new PostgresDatabaseAdapterFactory()
-      .newBuilder()
-      .withConnector(connector)
-      .withConfig(dbAdapterConfig)
-      .build(storeWorker);
-    exportNessieRepo = new ExportNessieRepo(postgresDatabaseAdapter);
+//    h2DatabaseAdapter = new H2DatabaseAdapterFactory()
+//      .newBuilder()
+//      .withConnector()
+//      .withConfig(dbAdapterConfig)
+//      .build(storeWorker);
+    exportNessieRepo = new ExportNessieRepo(h2DatabaseAdapter);
 
   }
 
@@ -96,7 +71,7 @@ public class TestExportPostgres {
 
     exportNessieRepo.exportNamedRefs(targetDirectory);
 
-    List<ReferenceInfoExport> originalNamedRefsInfoList = ExportTestsHelper.fetchNamedRefsInfoList(postgresDatabaseAdapter);
+    List<ReferenceInfoExport> originalNamedRefsInfoList = ExportTestsHelper.fetchNamedRefsInfoList(h2DatabaseAdapter);
     List<ReferenceInfoExport> deserializedNamedRefsInfoList = ExportTestsHelper.deserializeNamedRefsInfoList(targetDirectory);
 
     Assertions.assertThat(originalNamedRefsInfoList.size()).isEqualTo(deserializedNamedRefsInfoList.size());
@@ -121,7 +96,7 @@ public class TestExportPostgres {
 
     List<RefLog> deserializedRefLog = ExportTestsHelper.deserializeRefLog(targetDirectory);
 
-    List<RefLog> originalReflog = ExportTestsHelper.fetchRefLogList(postgresDatabaseAdapter);
+    List<RefLog> originalReflog = ExportTestsHelper.fetchRefLogList(h2DatabaseAdapter);
 
     Assertions.assertThat(originalReflog.size()).isEqualTo(deserializedRefLog.size());
 
@@ -148,7 +123,8 @@ public class TestExportPostgres {
   }
 
   @Test
-  public void testCommitLogTable() {
+  public void testCommitLogTable()
+  {
     String targetDirectory = "/Users/aditya.vemulapalli/Downloads";
 
     exportNessieRepo.exportCommitLogTable(targetDirectory);
@@ -157,14 +133,15 @@ public class TestExportPostgres {
 
     List<CommitLogClass2> deserializedCommitLogClass2List = ExportTestsHelper.deserializeCommitLogClass2List(targetDirectory);
 
-    CommitLogClassWrapper originalCommitLogList = ExportTestsHelper.fetchCommitLogTable(postgresDatabaseAdapter);
+    CommitLogClassWrapper originalCommitLogList = ExportTestsHelper.fetchCommitLogTable(h2DatabaseAdapter);
 
     List<CommitLogClass1> commitLogClass1List = originalCommitLogList.commitLogClass1List;
     List<CommitLogClass2> commitLogClass2List = originalCommitLogList.commitLogClass2List;
 
     Assertions.assertThat(commitLogClass1List.size()).isEqualTo(deserializedCommitLogClass1List.size());
 
-    for (int i = 0; i < commitLogClass1List.size(); i++) {
+    for(int i = 0 ; i < commitLogClass1List.size(); i++)
+    {
       Assertions.assertThat(commitLogClass1List.get(i).commitSeq).isEqualTo(deserializedCommitLogClass1List.get(i).commitSeq);
 
       Assertions.assertThat(commitLogClass1List.get(i).hash).isEqualTo(deserializedCommitLogClass1List.get(i).hash);
@@ -188,7 +165,8 @@ public class TestExportPostgres {
 
     Assertions.assertThat(commitLogClass2List.size()).isEqualTo(deserializedCommitLogClass2List.size());
 
-    for (int i = 0; i < commitLogClass2List.size(); i++) {
+    for(int i = 0 ; i < commitLogClass2List.size(); i++)
+    {
       Assert.assertEquals(commitLogClass2List.get(i).commitMeta, deserializedCommitLogClass2List.get(i).commitMeta);
 
       Assert.assertEquals(commitLogClass2List.get(i).contents, commitLogClass2List.get(i).contents);

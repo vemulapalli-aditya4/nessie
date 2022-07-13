@@ -45,6 +45,7 @@ dependencies {
   implementation("com.fasterxml.jackson.core:jackson-databind:2.13.3")
   implementation("software.amazon.awssdk:auth:2.17.220")
   implementation("software.amazon.awssdk:dynamodb:2.17.220")
+  implementation("software.amazon.awssdk:aws-crt-client:2.17.220-PREVIEW")
 
   testImplementation(platform(rootProject))
   testImplementation(projects.servers.quarkusCommon)

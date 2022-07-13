@@ -49,11 +49,15 @@ public class TestExportRocks {
 
     StoreWorker<Content, CommitMeta, Content.Type> storeWorker = new TableCommitMetaStoreWorker();
 
-    Path dir = (Path) Paths.get("/Users" , "aditya.vemulapalli", "Downloads");
+    // Path dir =
 
-    Path rocksDir;
+    Path rocksDir = (Path) Paths.get("/Users" , "aditya.vemulapalli", "Downloads", "2nessie", "nessie"
+    , "servers", "quarkus-server", "nessie-rocksdb");
 
-    rocksDir = Files.createTempDirectory(dir , "junit-rocks-export");
+    // ## RocksDB version store specific configuration
+    // #nessie.version.store.rocks.db-path=nessie-rocksdb
+
+    // rocksDir = Files.createTempDirectory(dir , "junit-rocks-export");
 
     String dbPath = rocksDir.toString();
 
