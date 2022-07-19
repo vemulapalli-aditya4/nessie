@@ -41,6 +41,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.http.ExecutableHttpRequest;
 import software.amazon.awssdk.http.HttpExecuteRequest;
 import software.amazon.awssdk.http.SdkHttpClient;
+import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.async.SdkAsyncHttpClient;
 import software.amazon.awssdk.http.crt.AwsCrtAsyncHttpClient;
 import software.amazon.awssdk.http.crt.AwsCrtSdkHttpService;
@@ -70,6 +71,7 @@ public class TestExportDynamo {
       .region(Region.US_WEST_2)
       .credentialsProvider(StaticCredentialsProvider.create(
         AwsBasicCredentials.create("fakeKeyId", "fakeSecretAccessKey" )))
+      // .httpClient(ApacheHttpClient.create())
       .build();
 
     DynamoClientConfig dynamoClientConfig = ImmutableDefaultDynamoClientConfig

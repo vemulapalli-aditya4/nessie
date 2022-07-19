@@ -51,6 +51,8 @@ dependencies {
   testImplementation(projects.servers.quarkusCommon)
   testImplementation("junit:junit:4.13.2")
   testImplementation("org.assertj:assertj-core:3.21.0")
+  testImplementation("software.amazon.awssdk:apache-client:2.17.220")
+
 }
 
 java {
