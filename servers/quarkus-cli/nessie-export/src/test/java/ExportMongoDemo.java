@@ -14,74 +14,56 @@
  * limitations under the License.
  */
 
+
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.projectnessie.model.CommitMeta;
 import org.projectnessie.model.Content;
-import org.projectnessie.quarkus.providers.TransactionalConnectionProvider;
 import org.projectnessie.server.store.TableCommitMetaStoreWorker;
-import org.projectnessie.versioned.StoreWorker;
-import org.projectnessie.versioned.persist.adapter.DatabaseAdapter;
-import org.projectnessie.versioned.persist.adapter.RefLog;
-import org.projectnessie.versioned.persist.tx.*;
-import org.projectnessie.versioned.persist.tx.postgres.PostgresDatabaseAdapterFactory;
+import org.projectnessie.versioned.*;
+import org.projectnessie.versioned.persist.adapter.*;
+import org.projectnessie.versioned.persist.mongodb.ImmutableMongoClientConfig;
+import org.projectnessie.versioned.persist.mongodb.MongoClientConfig;
+import org.projectnessie.versioned.persist.mongodb.MongoDatabaseAdapterFactory;
+import org.projectnessie.versioned.persist.mongodb.MongoDatabaseClient;
+import org.projectnessie.versioned.persist.nontx.AdjustableNonTransactionalDatabaseAdapterConfig;
+import org.projectnessie.versioned.persist.nontx.ImmutableAdjustableNonTransactionalDatabaseAdapterConfig;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 
-public class TestExportPostgres {
+import java.util.*;
+public class ExportMongoDemo {
 
-  static DatabaseAdapter postgresDatabaseAdapter;
+  static DatabaseAdapter mongoDatabaseAdapter;
 
   static ExportNessieRepo exportNessieRepo;
 
   @BeforeClass
   public static void beforeClass() throws Exception {
+    MongoClientConfig mongoClientConfig = ImmutableMongoClientConfig.builder()
+      .connectionString("mongodb://root:password@localhost:27017").databaseName("nessie").build();
 
-    //initializing postgres Adapter
+    MongoDatabaseClient MongoDBClient = new MongoDatabaseClient();
+    MongoDBClient.configure(mongoClientConfig);
+    MongoDBClient.initialize();
+
     StoreWorker<Content, CommitMeta, Content.Type> storeWorker = new TableCommitMetaStoreWorker();
-
-    TxDatabaseAdapterConfig dbAdapterConfig = ImmutableAdjustableTxDatabaseAdapterConfig.builder().build();
-
-    TxConnectionConfig txConnectionConfig = ImmutableDefaultTxConnectionConfig.builder().build();
-
-    /**should initialize connector properly*/
-    TxConnectionProvider<TxConnectionConfig> connector;
-    connector = new TxConnectionProvider<TxConnectionConfig>() {
-      @Override
-      public Connection borrowConnection() throws SQLException {
-        Connection conn;
-        conn = DriverManager.getConnection("jdbc:postgresql://localhost:55004/nessie", "postgres", "postgrespw");
-        conn.setAutoCommit(false);
-        return conn;
-      }
-
-      @Override
-      public void close() throws Exception {
-
-      }
-    };
-    connector.configure(txConnectionConfig);
-    connector.initialize();
-
-    postgresDatabaseAdapter = new PostgresDatabaseAdapterFactory()
+    AdjustableNonTransactionalDatabaseAdapterConfig adjustableNonTransactionalDatabaseAdapterConfig;
+    adjustableNonTransactionalDatabaseAdapterConfig = ImmutableAdjustableNonTransactionalDatabaseAdapterConfig.builder().build();
+    mongoDatabaseAdapter = new MongoDatabaseAdapterFactory()
       .newBuilder()
-      .withConnector(connector)
-      .withConfig(dbAdapterConfig)
+      .withConnector(MongoDBClient)
+      .withConfig(adjustableNonTransactionalDatabaseAdapterConfig)
       .build(storeWorker);
-    exportNessieRepo = new ExportNessieRepo(postgresDatabaseAdapter);
 
+    exportNessieRepo = new ExportNessieRepo(mongoDatabaseAdapter);
   }
 
   @Test
   public void testRepoDesc() {
 
-    String targetDirectory = "/Users/aditya.vemulapalli/Downloads";
+    String targetDirectory = "/Users/aditya.vemulapalli/Desktop/ExportMongo";
     exportNessieRepo.exportRepoDesc(targetDirectory);
 
     /**Testing the serialized repo desc is correct or not */
@@ -92,11 +74,11 @@ public class TestExportPostgres {
 
   @Test
   public void testNamedRefs(){
-    String targetDirectory = "/Users/aditya.vemulapalli/Downloads";
+    String targetDirectory = "/Users/aditya.vemulapalli/Desktop/ExportMongo";
 
     exportNessieRepo.exportNamedRefs(targetDirectory);
 
-    List<ReferenceInfoExport> originalNamedRefsInfoList = ExportTestsHelper.fetchNamedRefsInfoList(postgresDatabaseAdapter);
+    List<ReferenceInfoExport> originalNamedRefsInfoList = ExportTestsHelper.fetchNamedRefsInfoList(mongoDatabaseAdapter);
     List<ReferenceInfoExport> deserializedNamedRefsInfoList = ExportTestsHelper.deserializeNamedRefsInfoList(targetDirectory);
 
     Assertions.assertThat(originalNamedRefsInfoList.size()).isEqualTo(deserializedNamedRefsInfoList.size());
@@ -115,13 +97,13 @@ public class TestExportPostgres {
   @Test
   public void testRefLogTable()
   {
-    String targetDirectory = "/Users/aditya.vemulapalli/Downloads";
+    String targetDirectory = "/Users/aditya.vemulapalli/Desktop/ExportMongo";
 
     exportNessieRepo.exportRefLogTable(targetDirectory);
 
     List<RefLog> deserializedRefLog = ExportTestsHelper.deserializeRefLog(targetDirectory);
 
-    List<RefLog> originalReflog = ExportTestsHelper.fetchRefLogList(postgresDatabaseAdapter);
+    List<RefLog> originalReflog = ExportTestsHelper.fetchRefLogList(mongoDatabaseAdapter);
 
     Assertions.assertThat(originalReflog.size()).isEqualTo(deserializedRefLog.size());
 
@@ -148,8 +130,9 @@ public class TestExportPostgres {
   }
 
   @Test
-  public void testCommitLogTable() {
-    String targetDirectory = "/Users/aditya.vemulapalli/Downloads";
+  public void testCommitLogTable()
+  {
+    String targetDirectory = "/Users/aditya.vemulapalli/Desktop/ExportMongo";
 
     exportNessieRepo.exportCommitLogTable(targetDirectory);
 
@@ -157,14 +140,15 @@ public class TestExportPostgres {
 
     List<CommitLogClass2> deserializedCommitLogClass2List = ExportTestsHelper.deserializeCommitLogClass2List(targetDirectory);
 
-    CommitLogClassWrapper originalCommitLogList = ExportTestsHelper.fetchCommitLogTable(postgresDatabaseAdapter);
+    CommitLogClassWrapper originalCommitLogList = ExportTestsHelper.fetchCommitLogTable(mongoDatabaseAdapter);
 
     List<CommitLogClass1> commitLogClass1List = originalCommitLogList.commitLogClass1List;
     List<CommitLogClass2> commitLogClass2List = originalCommitLogList.commitLogClass2List;
 
     Assertions.assertThat(commitLogClass1List.size()).isEqualTo(deserializedCommitLogClass1List.size());
 
-    for (int i = 0; i < commitLogClass1List.size(); i++) {
+    for(int i = 0 ; i < commitLogClass1List.size(); i++)
+    {
       Assertions.assertThat(commitLogClass1List.get(i).commitSeq).isEqualTo(deserializedCommitLogClass1List.get(i).commitSeq);
 
       Assertions.assertThat(commitLogClass1List.get(i).hash).isEqualTo(deserializedCommitLogClass1List.get(i).hash);
@@ -188,12 +172,12 @@ public class TestExportPostgres {
 
     Assertions.assertThat(commitLogClass2List.size()).isEqualTo(deserializedCommitLogClass2List.size());
 
-    for (int i = 0; i < commitLogClass2List.size(); i++) {
+    for(int i = 0 ; i < commitLogClass2List.size(); i++)
+    {
       Assert.assertEquals(commitLogClass2List.get(i).commitMeta, deserializedCommitLogClass2List.get(i).commitMeta);
 
       Assert.assertEquals(commitLogClass2List.get(i).contents, commitLogClass2List.get(i).contents);
     }
 
   }
-
 }

@@ -24,68 +24,62 @@ import org.projectnessie.server.store.TableCommitMetaStoreWorker;
 import org.projectnessie.versioned.StoreWorker;
 import org.projectnessie.versioned.persist.adapter.DatabaseAdapter;
 import org.projectnessie.versioned.persist.adapter.RefLog;
-import org.projectnessie.versioned.persist.nontx.ImmutableAdjustableNonTransactionalDatabaseAdapterConfig;
-import org.projectnessie.versioned.persist.nontx.NonTransactionalDatabaseAdapterConfig;
-import org.projectnessie.versioned.persist.rocks.ImmutableRocksDbConfig;
-import org.projectnessie.versioned.persist.rocks.RocksDatabaseAdapterFactory;
-import org.projectnessie.versioned.persist.rocks.RocksDbConfig;
-import org.projectnessie.versioned.persist.rocks.RocksDbInstance;
+import org.projectnessie.versioned.persist.tx.*;
+import org.projectnessie.versioned.persist.tx.postgres.PostgresDatabaseAdapterFactory;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.List;
 
-public class TestExportRocks {
+public class ExportPostgresDemo {
 
-  static DatabaseAdapter rocksDatabaseAdapter;
+  static DatabaseAdapter postgresDatabaseAdapter;
 
   static ExportNessieRepo exportNessieRepo;
 
   @BeforeClass
   public static void beforeClass() throws Exception {
 
-    /**The path given here is wrong , should give the path present in Quarkus server */
-
+    //initializing postgres Adapter
     StoreWorker<Content, CommitMeta, Content.Type> storeWorker = new TableCommitMetaStoreWorker();
 
-    // Path dir =
+    TxDatabaseAdapterConfig dbAdapterConfig = ImmutableAdjustableTxDatabaseAdapterConfig.builder().build();
 
-    Path rocksDir = (Path) Paths.get("/Users" , "aditya.vemulapalli", "Downloads", "2nessie", "nessie"
-    , "servers", "quarkus-server", "nessie-rocksdb");
+    TxConnectionConfig txConnectionConfig = ImmutableDefaultTxConnectionConfig.builder().build();
 
-    // ## RocksDB version store specific configuration
-    // #nessie.version.store.rocks.db-path=nessie-rocksdb
+    /**should initialize connector properly*/
+    TxConnectionProvider<TxConnectionConfig> connector;
+    connector = new TxConnectionProvider<TxConnectionConfig>() {
+      @Override
+      public Connection borrowConnection() throws SQLException {
+        Connection conn;
+        conn = DriverManager.getConnection("jdbc:postgresql://localhost:55005/nessie", "postgres", "postgrespw");
+        conn.setAutoCommit(false);
+        return conn;
+      }
 
-    // rocksDir = Files.createTempDirectory(dir , "junit-rocks-export");
+      @Override
+      public void close() throws Exception {
 
-    String dbPath = rocksDir.toString();
-
-    RocksDbConfig config  = ImmutableRocksDbConfig
-      .builder()
-      .dbPath(dbPath)
-      .build();
-
-    RocksDbInstance connector = new RocksDbInstance();
-    connector.configure(config);
+      }
+    };
+    connector.configure(txConnectionConfig);
     connector.initialize();
 
-    NonTransactionalDatabaseAdapterConfig rocksDbAdapterConfig = ImmutableAdjustableNonTransactionalDatabaseAdapterConfig.builder().build();
-
-    rocksDatabaseAdapter = new RocksDatabaseAdapterFactory()
+    postgresDatabaseAdapter = new PostgresDatabaseAdapterFactory()
       .newBuilder()
       .withConnector(connector)
-      .withConfig(rocksDbAdapterConfig)
+      .withConfig(dbAdapterConfig)
       .build(storeWorker);
-
-    exportNessieRepo = new ExportNessieRepo(rocksDatabaseAdapter);
+    exportNessieRepo = new ExportNessieRepo(postgresDatabaseAdapter);
 
   }
 
   @Test
   public void testRepoDesc() {
 
-    String targetDirectory = "/Users/aditya.vemulapalli/Downloads";
+    String targetDirectory = "/Users/aditya.vemulapalli/Desktop/ExportPostgres";
     exportNessieRepo.exportRepoDesc(targetDirectory);
 
     /**Testing the serialized repo desc is correct or not */
@@ -96,11 +90,11 @@ public class TestExportRocks {
 
   @Test
   public void testNamedRefs(){
-    String targetDirectory = "/Users/aditya.vemulapalli/Downloads";
+    String targetDirectory = "/Users/aditya.vemulapalli/Desktop/ExportPostgres";
 
     exportNessieRepo.exportNamedRefs(targetDirectory);
 
-    List<ReferenceInfoExport> originalNamedRefsInfoList = ExportTestsHelper.fetchNamedRefsInfoList(rocksDatabaseAdapter);
+    List<ReferenceInfoExport> originalNamedRefsInfoList = ExportTestsHelper.fetchNamedRefsInfoList(postgresDatabaseAdapter);
     List<ReferenceInfoExport> deserializedNamedRefsInfoList = ExportTestsHelper.deserializeNamedRefsInfoList(targetDirectory);
 
     Assertions.assertThat(originalNamedRefsInfoList.size()).isEqualTo(deserializedNamedRefsInfoList.size());
@@ -116,24 +110,16 @@ public class TestExportRocks {
     }
   }
 
-  /**
-   *java.lang.NullPointerException
-   * 	at org.projectnessie.versioned.persist.nontx.NonTransactionalDatabaseAdapter.readRefLog(NonTransactionalDatabaseAdapter.java:920)
-   * 	at org.projectnessie.versioned.persist.nontx.NonTransactionalDatabaseAdapter.readRefLog(NonTransactionalDatabaseAdapter.java:130)
-   * 	at org.projectnessie.versioned.persist.adapter.spi.AbstractDatabaseAdapter.readRefLogStream(AbstractDatabaseAdapter.java:1995)
-   * 	at org.projectnessie.versioned.persist.nontx.NonTransactionalDatabaseAdapter.refLog(NonTransactionalDatabaseAdapter.java:1503)
-   * 	at ExportNessieRepo.exportRefLogTable(ExportNessieRepo.java:159)
-   * 	at TestExportRocks.testRefLogTable(TestExportRocks.java:119) */
   @Test
   public void testRefLogTable()
   {
-    String targetDirectory = "/Users/aditya.vemulapalli/Downloads";
+    String targetDirectory = "/Users/aditya.vemulapalli/Desktop/ExportPostgres";
 
     exportNessieRepo.exportRefLogTable(targetDirectory);
 
     List<RefLog> deserializedRefLog = ExportTestsHelper.deserializeRefLog(targetDirectory);
 
-    List<RefLog> originalReflog = ExportTestsHelper.fetchRefLogList(rocksDatabaseAdapter);
+    List<RefLog> originalReflog = ExportTestsHelper.fetchRefLogList(postgresDatabaseAdapter);
 
     Assertions.assertThat(originalReflog.size()).isEqualTo(deserializedRefLog.size());
 
@@ -160,9 +146,8 @@ public class TestExportRocks {
   }
 
   @Test
-  public void testCommitLogTable()
-  {
-    String targetDirectory = "/Users/aditya.vemulapalli/Downloads";
+  public void testCommitLogTable() {
+    String targetDirectory = "/Users/aditya.vemulapalli/Desktop/ExportPostgres";
 
     exportNessieRepo.exportCommitLogTable(targetDirectory);
 
@@ -170,15 +155,14 @@ public class TestExportRocks {
 
     List<CommitLogClass2> deserializedCommitLogClass2List = ExportTestsHelper.deserializeCommitLogClass2List(targetDirectory);
 
-    CommitLogClassWrapper originalCommitLogList = ExportTestsHelper.fetchCommitLogTable(rocksDatabaseAdapter);
+    CommitLogClassWrapper originalCommitLogList = ExportTestsHelper.fetchCommitLogTable(postgresDatabaseAdapter);
 
     List<CommitLogClass1> commitLogClass1List = originalCommitLogList.commitLogClass1List;
     List<CommitLogClass2> commitLogClass2List = originalCommitLogList.commitLogClass2List;
 
     Assertions.assertThat(commitLogClass1List.size()).isEqualTo(deserializedCommitLogClass1List.size());
 
-    for(int i = 0 ; i < commitLogClass1List.size(); i++)
-    {
+    for (int i = 0; i < commitLogClass1List.size(); i++) {
       Assertions.assertThat(commitLogClass1List.get(i).commitSeq).isEqualTo(deserializedCommitLogClass1List.get(i).commitSeq);
 
       Assertions.assertThat(commitLogClass1List.get(i).hash).isEqualTo(deserializedCommitLogClass1List.get(i).hash);
@@ -202,8 +186,7 @@ public class TestExportRocks {
 
     Assertions.assertThat(commitLogClass2List.size()).isEqualTo(deserializedCommitLogClass2List.size());
 
-    for(int i = 0 ; i < commitLogClass2List.size(); i++)
-    {
+    for (int i = 0; i < commitLogClass2List.size(); i++) {
       Assert.assertEquals(commitLogClass2List.get(i).commitMeta, deserializedCommitLogClass2List.get(i).commitMeta);
 
       Assert.assertEquals(commitLogClass2List.get(i).contents, commitLogClass2List.get(i).contents);
